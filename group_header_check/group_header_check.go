@@ -6,11 +6,14 @@
          ### ->  70 characters
      If a post has more than one header line, or a header longer than its cap,
      this pings the poster in #rule_infractions.
-     See setup.txt for full step-by-step dashboard instructions.
+
+     The ping is sent through the shared "Alert Sender" command after a short
+     delay, so it is skipped if the post was already deleted (e.g. for length
+     or cooldown). See setup.txt for full step-by-step dashboard instructions.
      ===================================================================== */}}
 
-{{/* ▼▼ Paste your #rule_infractions channel ID here (see setup.txt) ▼▼ */}}
-{{ $infractionsChannel := 0 }}
+{{/* ▼▼ Paste your "Alert Sender" command ID here (see setup.txt) ▼▼ */}}
+{{ $alertSender := 0 }}
 
 {{/* Collect the header lines by checking the post ONE LINE AT A TIME.
      A header line starts with "# ", "## " or "### ". */}}
@@ -44,5 +47,9 @@
 {{ end }}
 
 {{ if or $tooMany $tooLong }}
-  {{ sendMessage $infractionsChannel (printf "Hello %s ! Group adverts may only have one line of header text. You can use regular bold for additional lines. Please fix your post in %s.  Thanks!" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID)) }}
+  {{ execCC $alertSender nil 5 (sdict
+    "channelID" .Channel.ID
+    "msgID"     .Message.ID
+    "text"      (printf "Hello %s ! Group adverts may only have one line of header text. You can use regular bold for additional lines. Please fix your post in %s.  Thanks!" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID))
+  ) }}
 {{ end }}

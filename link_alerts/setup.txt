@@ -9,12 +9,10 @@ the poster in #rule_infractions asking them to remove the link from their ad.
 
 BEFORE YOU START
 ----------------
-1. Turn on Discord Developer Mode:
-   User Settings → Developer → Developer Mode (ON).
-   This lets you right-click a channel and "Copy Channel ID".
-
-2. Copy this channel ID (right-click channel → Copy Channel ID):
-   • #rule_infractions 
+1. Set up the shared "Alert Sender" command first (see alert_sender/setup.txt)
+   and have its command ID ready. The ping is sent through that command so it is
+   skipped if the post was already deleted; #rule_infractions is configured
+   there, not here.
 
 
 CREATE THE "Link Alert" COMMAND
@@ -26,8 +24,8 @@ CREATE THE "Link Alert" COMMAND
    then add #quick_fandoms and #quick_originals to the channel list below.
 5. Open link_alert.go and copy its contents into the command's code box.
 6. In that pasted code, set:
-       {{ $infractionsChannel := 0 }}
-   By replacing the 0 with a paste of #rule_infractions channel ID.
+       {{ $alertSender := 0 }}
+   By replacing the 0 with the "Alert Sender" command ID.
 7. Save the command.
 
 

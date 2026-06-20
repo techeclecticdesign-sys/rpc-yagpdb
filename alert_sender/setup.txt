@@ -1,0 +1,49 @@
+ALERT SENDER — SETUP
+====================
+
+WHAT THIS DOES
+--------------
+This is a shared helper command used by the rule-infraction ping commands:
+  • link_alert
+  • header_alert
+  • no_images_in_1x1
+  • group_header_check
+
+Those commands run on the same post as the advert length/cooldown/duplicate
+command, which may DELETE the post. If they pinged the author directly, someone
+whose post was just deleted (for being too long, on cooldown, or a duplicate)
+would still get pinged to "remove the link/header/image" from a post that no
+longer exists.
+
+Instead, each of those commands hands its message to THIS command with a few
+seconds' delay. By the time this command runs, any deletion has settled, so it
+checks whether the post still exists and only pings if it does.
+
+Because the ping is sent from here, the #rule_infractions channel ID is
+configured in ONE place (this command) instead of in every alert command.
+
+
+BEFORE YOU START
+----------------
+1. Turn on Discord Developer Mode:
+   User Settings → Developer → Developer Mode (ON).
+
+2. Copy this channel ID (right-click channel → Copy Channel ID):
+   • #rule_infractions
+
+
+CREATE THE "Alert Sender" COMMAND
+---------------------------------
+1. YAGPDB dashboard → Custom Commands → New Command.
+2. Trigger type: None
+   (This should NEVER trigger on its own, only when an alert command calls it.)
+3. Open alert_sender.go and copy its contents into the command's code box.
+4. In that pasted code, set:
+       {{ $infractionsChannel := 0 }}
+   By replacing the 0 with a paste of #rule_infractions channel ID.
+5. Save the command.
+6. Find this command's ID: open/edit it in the YAGPDB dashboard and look at the
+   page URL — it ends in a number.
+   e.g. .../customcommands/commands/1234/  → the ID is 1234.
+   Write this number down; each alert command needs it (their setup files call
+   it the "Alert Sender command ID").
