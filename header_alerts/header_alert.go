@@ -9,4 +9,4 @@
 {{/* ▼▼ Paste your #rule_infractions channel ID here (see setup.txt) ▼▼ */}}
 {{ $infractionsChannel := 0 }}
 
-{{ sendMessage $infractionsChannel (printf "Hello %s ! You are welcome to use bold, however, headers are not allowed in the one on one advert channels, Please go back to your advert in %s and remove the header. Thanks!" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID)) }}
+{{ sendMessage $infractionsChannel (printf "Hello %s ! You are welcome to use bold, however, headers are not allowed in the one on one advert channels. Please go back to your advert in %s and remove the header. Thanks!" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID)) }}

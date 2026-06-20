@@ -7,7 +7,7 @@
 {{/* ▼▼ Paste the ID of your "Reaction Check" command here (see setup.txt) ▼▼ */}}
 {{ $checkCC := 0 }}
 
-{{/* ▼▼ How long to wait before checking the post, in seconds (600 = 10 min) ▼▼ */}}
+{{/* ▼▼ How long to wait before checking the post, in seconds (300 = 5 min) ▼▼ */}}
 {{ $delaySeconds := 300 }}
 
 {{ execCC $checkCC nil $delaySeconds (sdict
