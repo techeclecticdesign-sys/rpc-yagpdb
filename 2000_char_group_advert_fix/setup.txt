@@ -1,0 +1,39 @@
+2000 CHARACTER GROUP ADVERT FIX — SETUP
+=======================================
+
+THE PROBLEM
+-----------
+This is the same bug as the long-form / normal advert fix, but in the "Groups"
+command for the group advert channels.
+
+Posts that were under Discord's 2000 character limit were being deleted for
+"exceeding" it. Cause: the script measured length with `len`, which counts
+bytes, not characters. Emoji and accented/decorative characters take 2-4 bytes
+each (custom emojis can take far more), so an advert under 2000 characters can be
+over the byte limit and get wrongly deleted.
+
+The fix is to count CHARACTERS instead of bytes, using `toRune`.
+
+
+HOW TO APPLY THE FIX
+--------------------
+1. YAGPDB dashboard → Custom Commands → open the "Groups" advert command (the
+   one with the 2000 character check on the group advert channels).
+
+2. Near the TOP of the code, find this line:
+
+       {{ $argLength := (len (joinStr " " .Args)) }}
+
+   Replace it with:
+
+       {{ $argLength := (len (toRune .Message.Content)) }}
+
+3. A few lines down in the Config Section, find:
+
+       {{ $maxLength := 2100 }}
+
+   Change it to:
+
+       {{ $maxLength := 2000 }}
+
+4. Save the command.
