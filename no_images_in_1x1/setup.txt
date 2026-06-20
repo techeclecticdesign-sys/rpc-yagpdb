@@ -1,0 +1,34 @@
+NO IMAGES IN 1X1 — SETUP
+========================
+
+WHAT THIS DOES
+--------------
+When someone uploads an image (or any file) in a 1x1 advert channel, the bot
+pings the poster in #rule_infractions asking them to remove it from their ad.
+
+This is ONE YAGPDB custom command:
+  • "No Images in 1x1" (no_images_in_1x1.go)
+
+
+BEFORE YOU START
+----------------
+1. Turn on Discord Developer Mode:
+   User Settings → Developer → Developer Mode (ON).
+   This lets you right-click a channel and "Copy Channel ID".
+
+2. Copy this channel ID (right-click channel → Copy Channel ID):
+   • #rule_infractions
+
+
+CREATE THE "No Images in 1x1" COMMAND
+-------------------------------------
+1. YAGPDB dashboard → Custom Commands → New Command.
+2. Trigger type: Regex
+3. Trigger: (?s).*
+4. Channel Restrictions: Check off 'Only run in the following channels'
+   then add your 1x1 advert channels to the channel list below.
+5. Open no_images_in_1x1.go and copy its contents into the command's code box.
+6. In that pasted code, set:
+       {{ $infractionsChannel := 0 }}
+   By replacing the 0 with a paste of #rule_infractions channel ID.
+7. Save the command.

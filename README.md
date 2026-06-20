@@ -14,9 +14,11 @@ Each folder contains:
 
 - ⚔️ **[quick_reactions](quick_reactions/)** — When a new post is made in the quick-search advert channels, a timer starts and, after a short delay, the bot checks that the post has at least three unique approved roleplay reactions. If it doesn't, the author is pinged in #rule_infractions and asked to add them. This keeps quick adverts properly tagged without staff hand-checking every post.
 
-- 🔗 **[link_alerts](link_alerts/)** — Watches the quick-search advert channels for messages containing http/https links and/or attached files. When one is found, the bot pings the author in #rule_infractions and asks them to remove the link from their ad.
+- 🔗 **[link_alerts](link_alerts/)** — Watches the quick-search advert channels for messages containing http/https links. When one is found, the bot pings the author in #rule_infractions and asks them to remove the link from their ad.
 
 - 📜 **[header_alerts](header_alerts/)** — Watches the one-on-one advert channels for Discord header text (`#`, `##`, `###`), which isn't allowed there. When a header is used, the bot pings the author in #rule_infractions to remove it (regular bold is still fine).
+
+- 🖼️ **[no_images_in_1x1](no_images_in_1x1/)** — Watches the 1x1 advert channels for posts with an uploaded image or file attachment, which aren't allowed there. When one is found, the bot pings the author in #rule_infractions and asks them to remove it from their ad.
 
 - 📏 **[group_header_check](group_header_check/)** — Enforces the header rules in the group advert channels: only one header line is allowed per post, and if that is exceeded the author is pinged in #rule_infractions to fix it.
 
