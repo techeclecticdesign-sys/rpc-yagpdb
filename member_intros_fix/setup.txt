@@ -1,0 +1,77 @@
+MEMBER INTROS FIX — SETUP
+=========================
+
+This patches two bugs in the "Member Intros" command. They are independent, but
+both live in the same command so they are applied together.
+
+
+BUG 1 — BYTE COUNT INSTEAD OF CHARACTER COUNT
+---------------------------------------------
+Same root cause as the advert fixes: the length check uses `len`, which counts
+bytes, not characters. Emoji and accented/decorative characters take 2-4 bytes
+each, so an intro under 800 characters can be over the byte limit and get
+wrongly deleted. The maxLength was also padded to 810 to soften this; with
+character counting that padding is no longer needed.
+
+
+BUG 2 — DUPLICATE LOCK BREAKS AFTER ONE COLLISION
+-------------------------------------------------
+When a user already has an intro and posts a second one, the command deletes the
+new post (correct) but then STILL overwrites the stored "last message" pointer
+with the ID of the post it just deleted. The next time that user posts,
+getMessage on the deleted ID returns nothing, the duplicate check passes, and a
+second intro is allowed through. The two dbSet lines need to run ONLY when the
+post is kept.
+
+
+HOW TO APPLY THE FIX
+--------------------
+1. YAGPDB dashboard → Custom Commands → open the "Member Intros" command.
+
+2. (Bug 1) Near the TOP of the code, find this line:
+
+       {{ $argLength := (len (joinStr " " .Args)) }}
+
+   Replace it with:
+
+       {{ $argLength := (len (toRune .Message.Content)) }}
+
+3. (Bug 1) A few lines down, find:
+
+       {{ $maxLength := 810 }}
+
+   Change it to:
+
+       {{ $maxLength := 800 }}
+
+4. (Bug 1) Find the length check:
+
+       {{ if ge $argLength $maxLength }}
+
+   Change `ge` to `gt` so an intro of exactly 800 characters is allowed:
+
+       {{ if gt $argLength $maxLength }}
+
+5. (Bug 2) Near the BOTTOM of the command, find this block:
+
+       {{ if $lastMsg }}
+           ...
+           {{ sendDM $prettyUserMessage }}
+       {{ end }}
+           {{ dbSet .User.ID $msgKey (joinStr "" .Message.ID) }}
+           {{ dbSet .User.ID $timeKey .Message.Timestamp.Parse }}
+   {{ end }}
+
+   Change the `{{ end }}` that closes `{{ if $lastMsg }}` into `{{ else }}`, so
+   the two dbSet lines only run when there is NO existing intro:
+
+       {{ if $lastMsg }}
+           ...
+           {{ sendDM $prettyUserMessage }}
+       {{ else }}
+           {{ dbSet .User.ID $msgKey (joinStr "" .Message.ID) }}
+           {{ dbSet .User.ID $timeKey .Message.Timestamp.Parse }}
+       {{ end }}
+   {{ end }}
+
+6. Save the command.
