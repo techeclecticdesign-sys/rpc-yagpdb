@@ -1,0 +1,53 @@
+BANNED WORDS — SETUP
+====================
+
+WHAT THIS DOES
+--------------
+Watches the advert channels for banned words. If any word in a post contains a
+banned word as a substring, the bot pings the poster in #rule_infractions, links
+to the channel, and shows the offending word(s) inside ||spoiler tags|| so the
+term isn't displayed openly.
+
+Matching is SUBSTRING-based and case-insensitive: a banned word of "slur" would
+flag "slur", "Slur", and "xslury". This is intentional (it catches words people
+try to hide letters around), but it also means a banned word can match inside an
+innocent word — banning "ass" would flag "class" and "passage". Pick entries
+carefully, and prefer longer / less ambiguous terms.
+
+
+BEFORE YOU START
+----------------
+1. Set up the shared "Alert Sender" command first (see alert_sender/setup.txt)
+   and have its command ID ready. The ping is sent through that command so it is
+   skipped if the post was already deleted; #rule_infractions is configured
+   there, not here.
+
+
+CREATE THE "Banned Words" COMMAND
+---------------------------------
+1. YAGPDB dashboard → Custom Commands → New Command.
+2. Trigger type: Regex
+3. Trigger: ([\s\S]*)
+   (Matches every message, including multi-line posts.)
+4. Channel Restrictions: Check off 'Only run in the following channels'
+   then add ALL of your advert channels.
+5. Open banned_words.go and copy its contents into the command's code box.
+6. In that pasted code, set:
+       {{ $alertSender := 0 }}
+   By replacing the 0 with the "Alert Sender" command ID.
+7. Edit the banned word list. Replace the example entries:
+       {{ $banned := cslice
+         "exampleword"
+         "anotherword"
+       }}
+   with your own LOWERCASE words, one per line in quotes.
+8. Save the command.
+
+
+NOTES
+-----
+• Only the word(s) that matched are shown, each in its own spoiler, so multiple
+  offenders in one post are all listed.
+• Because this runs on every post in every advert channel, it is a strong
+  candidate to be merged into the consolidated advert command later, to keep the
+  number of commands firing per message low.

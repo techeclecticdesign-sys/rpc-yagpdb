@@ -24,6 +24,8 @@ Each folder contains:
 
 - 📨 **[alert_sender](alert_sender/)** — Shared helper used by `link_alerts`, `header_alerts`, `no_images_in_1x1`, and `group_header_check`. Instead of pinging directly, those commands hand their message to this one with a short delay; it then pings #rule_infractions only if the post still exists. This stops the author being pinged about a post that the length/cooldown/duplicate command already deleted, and keeps the #rule_infractions channel ID configured in one place.
 
+- 🚫 **[banned_words](banned_words/)** — Watches the advert channels for a configurable list of banned words. If any word in a post contains a banned word as a substring (case-insensitive), the bot pings the author in #rule_infractions, links to the channel, and shows the offending word(s) in ||spoiler tags||. Routes through `alert_sender`.
+
 - 🪪 **[cross_channel_dupes](cross_channel_dupes/)** — Enforces the "one advert, one channel" rule (o7). When someone posts, it compares the new ad against that user's current ads in the other advert channels (found in one database query via their stored `lastMsg_` keys) and, if it finds a verbatim/copy-paste match, pings the author in #rule_infractions to differentiate or remove one. Routes through `alert_sender`, so a post already deleted for length/cooldown won't trigger a duplicate ping.
 
 - 🧹 **[autoremove_reactions](autoremove_reactions/)** — Extending an existing command to cover all advert channels (1x1 and group).
