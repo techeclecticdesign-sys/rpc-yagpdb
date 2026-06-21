@@ -1,0 +1,65 @@
+1X1 / LONG-FORM ADVERT (CONSOLIDATED) — SETUP
+=============================================
+
+WHAT THIS IS
+------------
+Replaces your existing "Normal / Long-Form" advert command with a single command
+that does everything for the 1x1 channels:
+  • length / cooldown / duplicate enforcement (deletes violators) — as before
+  • no headers          (was: header_alerts)
+  • no images / media   (was: no_images_in_1x1)
+  • banned words        (was: banned_words)
+  • cross-channel duplicate detection (was: cross_channel_dupes)
+
+Drops the 1x1 channels from 6 message-triggered commands to 2 (this + the
+sticky), under YAGPDB's limit of 3 per message.
+
+
+IMPORTANT — EDIT IN PLACE, DON'T CREATE NEW
+-------------------------------------------
+Paste this OVER your existing "Normal / Long-Form" command's code so it keeps its
+original (low) command ID. YAGPDB only runs the first 3 commands by ID.
+
+
+STEP 1 — REPLACE THE NORMAL / LONG-FORM COMMAND
+-----------------------------------------------
+1. YAGPDB dashboard → Custom Commands → open your existing Normal/Long-Form command.
+2. Leave the trigger as-is:
+       Trigger type: Regex
+       Trigger: ([\s\S]*)
+       Channel Restrictions: your 1x1 advert channels (unchanged)
+3. Replace all the code with the contents of 1x1_advert.go.
+4. Set the two config values near the top:
+       {{ $infractionsChannel := 0 }}   → your #rule_infractions channel ID
+       {{ $banned := cslice ... }}      → your lowercase banned words
+   (Keep the banned list identical to group_advert and quick_advert.)
+5. Save.
+
+
+STEP 2 — REMOVE THE NOW-REDUNDANT COMMANDS FROM THE 1X1 CHANNELS
+----------------------------------------------------------------
+• header_alerts      — DELETE entirely (it was 1x1-only).
+• no_images_in_1x1   — DELETE entirely (it was 1x1-only).
+• banned_words       — do NOT delete yet (quick still uses it). REMOVE your 1x1
+                       channels from its channel list.
+• cross_channel_dupes — do NOT delete yet. REMOVE your 1x1 channels from its list.
+
+
+STEP 3 — VERIFY
+---------------
+In a 1x1 channel, confirm only this command and the sticky run there. Then:
+
+1. Post an advert OVER 2000 characters → DELETED + DM.
+2. Post a valid advert, then post again → 2nd deleted (cooldown / duplicate).
+3. Valid advert with a header line (e.g. "# hi") → STAYS + one ping.
+4. Valid advert with an uploaded image → STAYS + one ping.
+5. Valid advert with a banned word → STAYS + ping, word in ||spoilers||.
+6. Same advert posted in two channels → 2nd STAYS + duplicate ping.
+7. Over-length advert that also has a header → DELETED with length DM, NO ping.
+
+Remember: headers/images/banned/duplicate are ADVISORY — they PING, they don't
+delete. Only length / cooldown / duplicate-in-channel delete the post. And the
+advisory ping only fires on a KEPT post (so test with a user who is NOT on
+cooldown, or the post gets deleted before the advisory runs).
+
+Next: quick_advert.

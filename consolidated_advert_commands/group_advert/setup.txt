@@ -1,0 +1,80 @@
+GROUP ADVERT (CONSOLIDATED) — SETUP
+===================================
+
+WHAT THIS IS
+------------
+This replaces your existing "Groups" advert command with a single command that
+does everything for the group channels:
+  • length / cooldown / duplicate enforcement (deletes violators) — as before
+  • group-header rule  (was: group_header_check)
+  • banned words       (was: banned_words)
+  • cross-channel duplicate detection (was: cross_channel_dupes)
+
+This drops the group channels from 5 message-triggered commands to 2 (this + the
+sticky), which is under YAGPDB's limit of 3 commands per message on non-premium
+servers. That limit is why the advert command had stopped firing.
+
+
+IMPORTANT — EDIT IN PLACE, DON'T CREATE NEW
+-------------------------------------------
+Paste this OVER your existing "Groups" command's code. Do NOT create a new
+command. YAGPDB runs only the first 3 commands (by command ID) per message, so
+keeping the original (low) command ID guarantees this one runs.
+
+
+BEFORE YOU START
+----------------
+Copy your #rule_infractions channel ID (right-click channel -> Copy Channel ID).
+Advisory pings are sent there directly now — there is no alert_sender anymore.
+
+
+STEP 1 — REPLACE THE GROUPS COMMAND
+-----------------------------------
+1. YAGPDB dashboard → Custom Commands → open your existing "Groups" command.
+2. Leave the trigger as-is:
+       Trigger type: Regex
+       Trigger: ([\s\S]*)
+       Channel Restrictions: your group advert channels (unchanged)
+3. Delete all the code in the box and paste in the contents of group_advert.go.
+4. Set the two config values near the top:
+       {{ $infractionsChannel := 0 }}   → your #rule_infractions channel ID
+       {{ $banned := cslice ... }}      → your lowercase banned words
+5. Save.
+
+
+STEP 2 — REMOVE THE NOW-REDUNDANT COMMANDS FROM THE GROUP CHANNELS
+-----------------------------------------------------------------
+Their logic now lives inside the command above, so they must stop running in the
+group channels or you will be back over the cap.
+
+• group_header_check — DELETE this command entirely (it was group-only).
+
+• banned_words — do NOT delete yet (1x1 and quick still use it until they're
+  migrated). Instead, open it and REMOVE your group channels from its
+  "Only run in the following channels" list.
+
+• cross_channel_dupes — same: do NOT delete yet. REMOVE your group channels from
+  its channel list.
+
+(Once 1x1 and quick are also migrated, banned_words, cross_channel_dupes, and
+alert_sender get deleted completely — see the parent README.)
+
+
+STEP 3 — VERIFY (this is the important test)
+--------------------------------------------
+In a group channel, confirm only TWO commands now run there: this command and
+the sticky. Then test:
+
+1. Post an advert OVER 2000 characters  → it should be DELETED + you get a DM.
+   (If this works, the cap problem is fixed — the gatekeeper is firing again.)
+2. Post a valid advert, then immediately post again → 2nd is deleted (duplicate).
+3. Post a valid advert with two header lines → it STAYS, and you get one ping in
+   #rule_infractions listing the header issue.
+4. Post a valid advert containing a banned word → STAYS + ping with the word in
+   ||spoilers||.
+5. Post the same advert in two different advert channels → the second STAYS + a
+   ping noting it duplicates the other channel.
+6. Post an over-length advert that also has a banned word → it is DELETED with
+   the length DM and you get NO advisory ping (the post is gone).
+
+If all six behave as described, the group pilot is good and we move on to 1x1.

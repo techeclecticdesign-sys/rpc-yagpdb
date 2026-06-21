@@ -1,0 +1,93 @@
+QUICK ADVERT (CONSOLIDATED) — SETUP
+===================================
+
+WHAT THIS IS
+------------
+Replaces your existing "Quick Channels" command with a single command that does
+everything for the quick search channels:
+  • length (100 words) / cooldown / duplicate enforcement (deletes) — as before
+  • no links            (was: link_alerts)
+  • no images / media   (quick rule o2 — there was no command for this before,
+                         so this is newly enforced here, advisory like the rest)
+  • no headers          (general "no headers in any adverts" rule — also newly
+                         enforced here)
+  • banned words        (was: banned_words)
+  • cross-channel duplicate detection (was: cross_channel_dupes)
+  • schedules the reaction check on kept posts (was: post_timer)
+
+Drops the quick channels from 6 message-triggered commands to 2 (this + the
+sticky), under YAGPDB's limit of 3 per message. This is the channel that was
+broken — this fixes it.
+
+
+IMPORTANT — EDIT IN PLACE, DON'T CREATE NEW
+-------------------------------------------
+Paste this OVER your existing "Quick Channels" command's code so it keeps its
+original (low) command ID.
+
+
+BEFORE YOU START
+----------------
+Have ready:
+  • #rule_infractions channel ID
+  • the "Reaction Check" command ID (the existing reaction_check command — its
+    page URL ends in a number). Keep reaction_check itself; only post_timer is
+    being folded in.
+
+
+STEP 1 — REPLACE THE QUICK CHANNELS COMMAND
+-------------------------------------------
+1. YAGPDB dashboard → Custom Commands → open your existing Quick Channels command.
+2. Leave the trigger as-is:
+       Trigger type: Regex
+       Trigger: ([\s\S]*)
+       Channel Restrictions: your quick search channels (unchanged)
+3. Replace all the code with the contents of quick_advert.go.
+4. Set the config values near the top:
+       {{ $infractionsChannel := 0 }}   → your #rule_infractions channel ID
+       {{ $reactionCheck := 0 }}        → your Reaction Check command ID
+       {{ $delaySeconds := 300 }}       → reaction-check wait (300 = 5 min)
+       {{ $banned := cslice ... }}      → your lowercase banned words
+   (Keep the banned list identical to group_advert and 1x1_advert.)
+5. Save.
+
+
+STEP 2 — REMOVE THE NOW-REDUNDANT COMMANDS FROM THE QUICK CHANNELS
+------------------------------------------------------------------
+• link_alerts          — DELETE entirely (it was quick-only).
+• post_timer           — DELETE entirely (its scheduling is now inlined here).
+                         KEEP reaction_check — this command still calls it.
+• banned_words         — now safe to DELETE entirely (all three channel types
+                         are migrated). Or remove the quick channels from its list.
+• cross_channel_dupes  — now safe to DELETE entirely. Or remove the quick channels.
+
+
+STEP 3 — FINAL CLEANUP (after this command is verified)
+-------------------------------------------------------
+Once all three consolidated commands (group, 1x1, quick) are live and verified,
+delete the leftovers that nothing calls anymore:
+  • banned_words
+  • cross_channel_dupes
+  • alert_sender   (nothing routes through it now — the merged commands ping
+                    #rule_infractions directly)
+Keep: reaction_check (called by this command) and autoremove_reactions.
+
+
+STEP 4 — VERIFY
+---------------
+In a quick channel, confirm only this command and the sticky run there. Then:
+
+1. Post an advert OVER 100 words → DELETED + DM (this is the bug that's fixed).
+2. Post a valid advert, then post again → 2nd deleted (cooldown / duplicate).
+3. Valid advert with fewer than 3 reactions → after the delay (default 5 min),
+   a reaction reminder ping appears (reaction_check still working).
+4. Valid advert containing a link → STAYS + one ping.
+5. Valid advert with an uploaded image → STAYS + one ping.
+6. Valid advert with a header line (e.g. "# hi") → STAYS + one ping.
+7. Valid advert with a banned word → STAYS + ping, word in ||spoilers||.
+8. Same advert in two channels → 2nd STAYS + duplicate ping.
+9. Over-length advert that also has a link → DELETED with length DM, NO link
+   ping, and NO reaction check scheduled (post is gone).
+
+Advisory checks (link/banned/duplicate) PING, they don't delete, and only run on
+a KEPT post — so test with a user who is NOT on cooldown.

@@ -1,0 +1,160 @@
+{{- /* =====================================================================
+     1x1 / LONG-FORM advert command — CONSOLIDATED.
+
+     Replaces the old "Normal / Long-Form" command AND folds in header_alerts,
+     no_images_in_1x1, banned_words, and cross_channel_dupes so the 1x1
+     channels run only 2 message-triggered commands (this + the sticky),
+     under YAGPDB's 3-per-message cap.
+
+     Flow: length / cooldown / duplicate gatekeeping (deletes violators),
+     then — only if the post is KEPT — the advisory checks, sent as ONE ping.
+
+     Trigger type: Regex   Trigger: ([\s\S]*)
+     Channel Restrictions: your one-on-one (1x1) advert channels.
+     Paste this OVER the existing Normal / Long-Form command (keep its ID).
+     ===================================================================== */ -}}
+
+{{- /* ===== CONFIG ===== */ -}}
+{{ $maxLength := 2000 }}
+{{ $lockoutHours := 96 }}
+
+{{/* ▼▼ #rule_infractions channel ID — advisory pings are sent here directly ▼▼ */}}
+{{ $infractionsChannel := 0 }}
+
+{{/* ▼▼ Banned words — lowercase. DUPLICATED in group_advert and quick_advert;
+       update all three when you change this list. ▼▼ */}}
+{{ $banned := cslice
+  "exampleword"
+  "anotherword"
+}}
+
+{{- /* ===== setup ===== */ -}}
+{{ $argLength := (len (toRune .Message.Content)) }}
+{{ $advert_rule := (joinStr "" "[#advert_rules](" "https://discordapp.com/channels/" (.Message.GuildID) "/462444993529905172)") }}
+{{ $msgKey := (joinStr "" "lastMsg_" (.Message.ChannelID)) }}
+{{ $timeKey := (joinStr "_" "lastMsgTime" (.Message.ChannelID) (joinStr "" $lockoutHours "h")) }}
+{{ $oldTimeKey := (joinStr "" "lastMsgTime_" (.Message.ChannelID)) }}
+{{ $name := .User.Username }}
+{{ if .Member.Nick }}{{ $name = .Member.Nick }}{{ end }}
+
+{{- /* ===== 1. LENGTH ===== */ -}}
+{{ if ge $argLength $maxLength }}
+  {{ sendDM (cembed
+    "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because it exceeds the 2000 character limit for our long-form ad channels. Here is the message that was not posted: ")
+    "description" .Message.Content
+    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**" "Please adjust your post to be at or under the max length of a non-Nitro post, which is 2,000 characters. Please note all advertisements in our group channels must be kept to one Discord post, but can include a link to a Google Doc with additional information.\n\nIf you want to keep your post in the current channel, please shorten it to 2000 characters or less. Keep in mind a lot of information may be given using the Post a Plot Tags.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions." "**") "inline" false))
+    "color" 14905344
+    "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
+    "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
+  ) }}
+  {{ deleteMessage .Message.ChannelID .Message.ID 1 }}
+  {{ return }}
+{{ end }}
+
+{{- /* ===== 2. COOLDOWN ===== */ -}}
+{{ $lastMsgTime := (dbGet .User.ID $timeKey).Value }}
+{{ if not $lastMsgTime }}{{ $lastMsgTime = (dbGet .User.ID $oldTimeKey).Value }}{{ end }}
+{{ if $lastMsgTime }}
+  {{ $minTimeToPost := (currentTime.Add (toDuration (mult $lockoutHours .TimeHour -1))) }}
+  {{ $remaining := $lastMsgTime.Sub $minTimeToPost }}
+  {{ if ge (toInt $remaining.Seconds) 0 }}
+    {{ sendDM (cembed
+      "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because you have posted an advertisement on this channel too recently. Here is the message that was not posted: ")
+      "description" .Message.Content
+      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**You are free to wait and post again in " (humanizeDurationMinutes $remaining) ", once your post cooldown has expired. You can check your eligibility to repost in our 'Can I Post' channel.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions.**") "inline" false))
+      "color" 14905344
+      "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
+      "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
+    ) }}
+    {{ deleteMessage .Message.ChannelID .Message.ID 1 }}
+    {{ return }}
+  {{ end }}
+{{ end }}
+
+{{- /* ===== 3. DUPLICATE IN THIS CHANNEL ===== */ -}}
+{{ $lastMsgId := (dbGet .User.ID $msgKey).Value }}
+{{ if getMessage .Message.ChannelID $lastMsgId }}
+  {{ sendDM (cembed
+    "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because you already have an advertisement on this channel. Here is the message that was not posted: ")
+    "description" .Message.Content
+    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**You are free to delete your [old advert](" "https://discordapp.com/channels/" (.Message.GuildID) "/" (.Message.ChannelID) "/" ($lastMsgId) "). Once you have successfully posted a new advert your cooldown period will be restarted. You can check your eligibility to repost in our 'Can I Post' channel.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions.**") "inline" false))
+    "color" 14905344
+    "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
+    "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
+  ) }}
+  {{ deleteMessage .Message.ChannelID .Message.ID 1 }}
+  {{ return }}
+{{ end }}
+
+{{- /* ===== POST IS KEPT — record it, then run advisory checks ===== */ -}}
+{{ dbSet .User.ID $msgKey (str .Message.ID) }}
+{{ dbSet .User.ID $timeKey .Message.Timestamp.Parse }}
+
+{{ $issues := cslice }}
+
+{{- /* --- ADVISORY: no headers allowed in 1x1 (any header line) --- */ -}}
+{{ $hasHeader := false }}
+{{ range (split .Message.Content "\n") }}
+  {{ if or (hasPrefix . "# ") (hasPrefix . "## ") (hasPrefix . "### ") }}{{ $hasHeader = true }}{{ end }}
+{{ end }}
+{{ if $hasHeader }}
+  {{ $issues = $issues.Append "Headers aren't allowed in the one-on-one advert channels. You're welcome to use regular **bold** instead." }}
+{{ end }}
+
+{{- /* --- ADVISORY: no images / attachments in 1x1 --- */ -}}
+{{ if gt (len .Message.Attachments) 0 }}
+  {{ $issues = $issues.Append "Images and other media aren't allowed in the 1x1 advert channels. Please remove any attachments." }}
+{{ end }}
+
+{{- /* --- ADVISORY: banned words (substring, case-insensitive) --- */ -}}
+{{ if gt (len $banned) 0 }}
+  {{ $escaped := cslice }}
+  {{ range $banned }}{{ $escaped = $escaped.Append (reQuoteMeta .) }}{{ end }}
+  {{ $hits := reFindAll (printf "(?i)\\S*(?:%s)\\S*" (joinStr "|" $escaped)) .Message.Content }}
+  {{ if gt (len $hits) 0 }}
+    {{ $seen := sdict }}
+    {{ $spoilered := cslice }}
+    {{ range $hits }}
+      {{ $k := lower . }}
+      {{ if not ($seen.Get $k) }}{{ $seen.Set $k true }}{{ $spoilered = $spoilered.Append (printf "||%s||" .) }}{{ end }}
+    {{ end }}
+    {{ $issues = $issues.Append (printf "It contains wording that isn't allowed here: %s" (joinStr " " $spoilered)) }}
+  {{ end }}
+{{ end }}
+
+{{- /* --- ADVISORY: cross-channel duplicate (normalized exact match) --- */ -}}
+{{ $thisNorm := lower .Message.Content }}
+{{ $thisNorm = reReplace "(?i)https?://\\S+" $thisNorm " " }}
+{{ $thisNorm = reReplace "[^a-z0-9 ]+" $thisNorm " " }}
+{{ $thisNorm = reReplace "\\s+" $thisNorm " " }}
+{{ $thisNorm = trimSpace $thisNorm }}
+{{ if ge (len $thisNorm) 15 }}
+  {{ $thisChannel := str .Channel.ID }}
+  {{ $dupChannel := "" }}
+  {{ range (dbGetPattern .User.ID "lastMsg_%" 100 0) }}
+    {{ if and (not $dupChannel) (hasPrefix .Key "lastMsg_") }}
+      {{ $cid := slice .Key 8 }}
+      {{ if ne $cid $thisChannel }}
+        {{ $other := getMessage $cid .Value }}
+        {{ if $other }}
+          {{ $o := lower $other.Content }}
+          {{ $o = reReplace "(?i)https?://\\S+" $o " " }}
+          {{ $o = reReplace "[^a-z0-9 ]+" $o " " }}
+          {{ $o = reReplace "\\s+" $o " " }}
+          {{ $o = trimSpace $o }}
+          {{ if eq $o $thisNorm }}{{ $dupChannel = $cid }}{{ end }}
+        {{ end }}
+      {{ end }}
+    {{ end }}
+  {{ end }}
+  {{ if $dupChannel }}
+    {{ $issues = $issues.Append (printf "It looks identical to your ad in <#%s>. The same advert can't be posted in more than one channel." $dupChannel) }}
+  {{ end }}
+{{ end }}
+
+{{- /* ===== ONE combined advisory ping (only if there were hits) ===== */ -}}
+{{ if gt (len $issues) 0 }}
+  {{ $body := "" }}
+  {{ range $issues }}{{ $body = joinStr "" $body "\n• " . }}{{ end }}
+  {{ sendMessage $infractionsChannel (printf "Hey %s ! A few things to fix in your post in %s:%s\n\nPlease edit your post. Thanks!" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID) $body) }}
+{{ end }}
