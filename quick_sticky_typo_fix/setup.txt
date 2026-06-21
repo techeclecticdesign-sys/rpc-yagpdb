@@ -1,0 +1,28 @@
+QUICK STICKY TYPO FIX — SETUP
+=============================
+
+THE PROBLEM
+-----------
+The sticky message in the quick search channels tells users the channels are
+"limited to 100 characters per post." That is wrong — the limit (in the rules
+and in the Quick Channels command) is 100 WORDS, not 100 characters. This is a
+wording typo in the sticky only; no command logic is affected.
+
+
+HOW TO APPLY THE FIX
+--------------------
+1. YAGPDB dashboard → Custom Commands → open the "Quick Channels Sticky"
+   command (the one that posts the quick-search sticky message).
+
+2. In the code, find this text inside the sticky message:
+
+       **100 characters**
+
+   Change it to:
+
+       **100 words**
+
+3. Save the command.
+
+   (The sticky reposts itself on the next message in the channel, so the
+   corrected text will appear automatically — no manual repost needed.)
