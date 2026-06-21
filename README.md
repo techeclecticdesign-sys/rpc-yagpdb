@@ -24,6 +24,8 @@ Each folder contains:
 
 - 📨 **[alert_sender](alert_sender/)** — Shared helper used by `link_alerts`, `header_alerts`, `no_images_in_1x1`, and `group_header_check`. Instead of pinging directly, those commands hand their message to this one with a short delay; it then pings #rule_infractions only if the post still exists. This stops the author being pinged about a post that the length/cooldown/duplicate command already deleted, and keeps the #rule_infractions channel ID configured in one place.
 
+- 🪪 **[cross_channel_dupes](cross_channel_dupes/)** — Enforces the "one advert, one channel" rule (o7). When someone posts, it compares the new ad against that user's current ads in the other advert channels (found in one database query via their stored `lastMsg_` keys) and, if it finds a verbatim/copy-paste match, pings the author in #rule_infractions to differentiate or remove one. Routes through `alert_sender`, so a post already deleted for length/cooldown won't trigger a duplicate ping.
+
 - 🧹 **[autoremove_reactions](autoremove_reactions/)** — Extending an existing command to cover all advert channels (1x1 and group).
 
 - 🛡️ **[2000_char_advert_fix](2000_char_advert_fix/)** — A fix (not a new command) for the long-form advert length check, which was wrongly deleting posts that were actually under Discord's 2,000-character limit. It switches the check to character counting with `toRune`.
