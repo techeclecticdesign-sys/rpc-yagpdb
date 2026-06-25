@@ -1,0 +1,85 @@
+# MAKE SURE CODE IS SAME
+
+
+
+#RULE_INFRACTIONS STICKY — SETUP
+===============================
+
+WHAT THIS DOES
+--------------
+Keeps the sticky message pinned to the BOTTOM of #rule_infractions, even when
+the bot auto-posts infractions into it.
+
+THE PROBLEM IT FIXES
+--------------------
+A plain sticky re-posts itself on a Regex `.*` trigger, which fires on every new
+message in the channel. That worked while staff posted infractions BY HAND —
+each human message re-fired the trigger and the sticky dropped back to the
+bottom.
+
+The new auto-infraction commands post the pings as the BOT. YAGPDB custom-command
+triggers never fire on the bot's own messages, so the `.*` trigger stops firing
+and the sticky gets stranded ABOVE the bot's pings.
+
+This version still runs on the normal `.*` trigger for human posts, AND is called
+directly (via execCC) by the auto-infraction senders right after they post a
+ping — so it re-sticks underneath the bot's messages too.
+
+
+BEFORE YOU START
+----------------
+1. Turn on Discord Developer Mode:
+   User Settings → Developer → Developer Mode (ON).
+
+2. Copy this channel ID (right-click channel → Copy Channel ID):
+   • #rule_infractions
+
+
+THE EASIEST PATH — EDIT YOUR EXISTING STICKY
+--------------------------------------------
+You almost certainly already have a sticky command on #rule_infractions. You do
+NOT need to recreate it or retype its text — just make three small edits to it:
+
+  1. At the very top of the code, ABOVE the line that builds your embed/message,
+     add these two lines:
+
+         {{ $ch := .Channel.ID }}
+         {{ if .ExecData }}{{ $ch = .ExecData.stickyChannel }}{{ end }}
+
+  2. In the "do not edit below" block, replace every `nil` channel argument with
+     `$ch`:
+
+         {{ if $db := dbGet $ch "stickymessage" }}
+             {{ deleteMessage $ch (toInt $db.Value) 0 }}
+         {{ end }}
+         {{ $id := sendMessageRetID $ch $message }}
+         {{ dbSet $ch "stickymessage" (str $id) }}
+
+  3. Leave your trigger as Regex `.*` restricted to #rule_infractions, and leave
+     your sticky text exactly as it is.
+
+infractions_sticky.go in this folder is the same thing as a full reference — the
+only line that is "yours" is the $message line; everything else is identical for
+every server.
+
+
+THEN — GET THE COMMAND ID
+-------------------------
+Open/edit the sticky command in the YAGPDB dashboard and look at the page URL —
+it ends in a number, e.g. .../customcommands/commands/1234/ → the ID is 1234.
+
+Write this number down. You will paste it into TWO other commands:
+  • Alert Sender   (alert_sender.go)   → {{ $infractionsSticky := 0 }}
+  • Reaction Check (reaction_check.go) → {{ $infractionsSticky := 0 }}
+
+That is what makes those commands re-stick the sticky after they post a ping.
+See their own setup files (alert_sender, quick_reactions) for where to paste it.
+
+
+NOTE ON RAPID-FIRE PINGS
+------------------------
+If several infractions land in the same second, each one nudges the sticky, and —
+exactly like the original sticky on rapid human posts — there is a small race
+window where a stray copy can be left behind. This matches the existing sticky
+behaviour and is rare at normal infraction volume. If it ever becomes a problem,
+apply the same race-guard you use on the other channel stickies.

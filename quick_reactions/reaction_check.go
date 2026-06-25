@@ -14,6 +14,9 @@
 {{/* ▼▼ Paste your #advert_rules channel ID here (see setup.txt) ▼▼ */}}
 {{ $advertRules := 0 }}
 
+{{/* ▼▼ Paste your "#rule_infractions sticky" command ID here (see setup.txt) ▼▼ */}}
+{{ $infractionsSticky := 0 }}
+
 {{/* Approved roleplay reactions. For custom emojis use the emoji NAME with
      no colons; names are CASE-SENSITIVE and must match the server emojis. */}}
 {{ $approved := cslice
@@ -47,4 +50,7 @@
   {{ $advertRulesText := "#advert_rules" }}
   {{ if $advertRules }}{{ $advertRulesText = printf "<#%d>" $advertRules }}{{ end }}
   {{ sendMessage $infractionsChannel (printf "Hello %s !  Your post in %s needs at least three unique reactions from the list of roleplay reactions viewable in %s.\n\nPlease add these or your post may be removed. Thank you!" $data.userMention $data.channelMention $advertRulesText) }}
+  {{/* Re-stick the #rule_infractions sticky beneath the ping we just posted.
+       Its own `.*` trigger never fires on this bot message, so we nudge it. */}}
+  {{ execCC $infractionsSticky $infractionsChannel 1 (sdict "stickyChannel" $infractionsChannel) }}
 {{ end }}

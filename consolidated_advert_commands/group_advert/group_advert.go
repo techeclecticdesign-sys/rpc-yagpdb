@@ -1,37 +1,15 @@
-{{- /* =====================================================================
-     GROUP advert command — CONSOLIDATED.
-
-     Replaces the old "Groups" command AND folds in group_header_check,
-     banned_words, and cross_channel_dupes so the group channels run only
-     2 message-triggered commands (this + the sticky), under YAGPDB's
-     3-per-message cap.
-
-     Flow: length / cooldown / duplicate gatekeeping (deletes violators),
-     then — only if the post is KEPT — the advisory checks, sent as ONE ping.
-     Because advisory checks run only on a kept post, there is no race with a
-     deletion, so no alert_sender / delayed re-check is needed.
-
-     Trigger type: Regex   Trigger: ([\s\S]*)
-     Channel Restrictions: your group advert channels.
-     Paste this OVER the existing Groups command (keep its command ID).
-     ===================================================================== */ -}}
-
-{{- /* ===== CONFIG ===== */ -}}
-{{ $maxLength := 2000 }}
+{{ $maxLength := 2100 }}
 {{ $lockoutHours := 168 }}
-
-{{/* ▼▼ #rule_infractions channel ID — advisory pings are sent here directly ▼▼ */}}
 {{ $infractionsChannel := 0 }}
-
-{{/* ▼▼ Banned words — lowercase. DUPLICATED in 1x1_advert and quick_advert;
-       update all three when you change this list. A post word that CONTAINS
-       one of these as a substring is flagged. ▼▼ */}}
+{{ $infractionsSticky := 0 }}
+{{ $staffPending := "staffpending:1442331141771366513" }}
 {{ $banned := cslice
-  "exampleword"
-  "anotherword"
+  "futa"
+  "futanari"
+  "futas"
+  "futanaris"
 }}
 
-{{- /* ===== setup ===== */ -}}
 {{ $argLength := (len (toRune .Message.Content)) }}
 {{ $advert_rule := (joinStr "" "[#advert_rules](" "https://discordapp.com/channels/" (.Message.GuildID) "/462444993529905172)") }}
 {{ $msgKey := (joinStr "" "lastMsg_" (.Message.ChannelID)) }}
@@ -41,7 +19,7 @@
 {{ if .Member.Nick }}{{ $name = .Member.Nick }}{{ end }}
 
 {{- /* ===== 1. LENGTH ===== */ -}}
-{{ if ge $argLength $maxLength }}
+{{ if gt $argLength $maxLength }}
   {{ sendDM (cembed
     "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because it exceeds the 2000 character limit for our long-form ad channels. Here is the message that was not posted: ")
     "description" .Message.Content
@@ -112,14 +90,14 @@
   {{ if gt (len (toRune (slice $line $prefixLen))) $cap }}{{ $tooLong = true }}{{ end }}
 {{ end }}
 {{ if or $tooMany $tooLong }}
-  {{ $issues = $issues.Append "Group adverts may only have **one** line of header text, and it must stay short. Use regular **bold** for any additional lines." }}
+  {{ $issues = $issues.Append "Group adverts may only have **one** line of header text. Use regular **bold** for any additional lines." }}
 {{ end }}
 
-{{- /* --- ADVISORY: banned words (substring, case-insensitive) --- */ -}}
+{{- /* --- ADVISORY: banned words (whole word, case-insensitive) --- */ -}}
 {{ if gt (len $banned) 0 }}
   {{ $escaped := cslice }}
   {{ range $banned }}{{ $escaped = $escaped.Append (reQuoteMeta .) }}{{ end }}
-  {{ $hits := reFindAll (printf "(?i)\\S*(?:%s)\\S*" (joinStr "|" $escaped)) .Message.Content }}
+  {{ $hits := reFindAll (printf "(?i)\\b(?:%s)\\b" (joinStr "|" $escaped)) .Message.Content }}
   {{ if gt (len $hits) 0 }}
     {{ $seen := sdict }}
     {{ $spoilered := cslice }}
@@ -157,7 +135,7 @@
     {{ end }}
   {{ end }}
   {{ if $dupChannel }}
-    {{ $issues = $issues.Append (printf "It looks identical to your ad in <#%s>. The same advert can't be posted in more than one channel." $dupChannel) }}
+    {{ $issues = $issues.Append (printf "It looks identical to your ad in <#%s>. Adverts in different channels must be distinctly different from one another." $dupChannel) }}
   {{ end }}
 {{ end }}
 
@@ -166,4 +144,8 @@
   {{ $body := "" }}
   {{ range $issues }}{{ $body = joinStr "" $body "\n• " . }}{{ end }}
   {{ sendMessage $infractionsChannel (printf "Hey %s ! A few things to fix in your post in %s:%s\n\nPlease edit your post. Thanks!" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID) $body) }}
-{{ end }}
+  {{/* Re-stick the #rule_infractions sticky beneath the ping we just posted.
+       The sticky's own `.*` trigger never fires on this bot message. */}}
+  {{ if $infractionsSticky }}{{ execCC $infractionsSticky $infractionsChannel 1 (sdict "stickyChannel" $infractionsChannel) }}{{ end }}
+  {{ if $staffPending }}{{ addReactions $staffPending }}{{ end }}
+  {{ end }}

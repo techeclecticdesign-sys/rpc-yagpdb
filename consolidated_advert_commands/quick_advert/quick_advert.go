@@ -1,40 +1,15 @@
-{{- /* =====================================================================
-     QUICK advert command — CONSOLIDATED.
-
-     Replaces the old "Quick Channels" command AND folds in link_alerts,
-     banned_words, cross_channel_dupes, and the post_timer that schedules the
-     reaction check. The quick channels run only 2 message-triggered commands
-     (this + the sticky), under YAGPDB's 3-per-message cap.
-
-     Flow: length(words) / cooldown / duplicate gatekeeping (deletes violators),
-     then — only if the post is KEPT — schedule the reaction check and run the
-     advisory checks, sent as ONE ping.
-
-     Trigger type: Regex   Trigger: ([\s\S]*)
-     Channel Restrictions: your quick search channels.
-     Paste this OVER the existing Quick Channels command (keep its ID).
-     ===================================================================== */ -}}
-
-{{- /* ===== CONFIG ===== */ -}}
 {{ $maxLength := 105 }}
 {{ $lockoutHours := 96 }}
-
-{{/* ▼▼ #rule_infractions channel ID — advisory pings are sent here directly ▼▼ */}}
 {{ $infractionsChannel := 0 }}
-
-{{/* ▼▼ "Reaction Check" command ID (reaction_check.go), scheduled on kept posts.
-       Set to 0 to disable reaction-checking. ▼▼ */}}
-{{ $reactionCheck := 0 }}
-{{ $delaySeconds := 300 }}
-
-{{/* ▼▼ Banned words — lowercase. DUPLICATED in group_advert and 1x1_advert;
-       update all three when you change this list. ▼▼ */}}
+{{ $infractionsSticky := 0 }}
+{{ $staffPending := "staffpending:1442331141771366513" }}
 {{ $banned := cslice
-  "exampleword"
-  "anotherword"
+  "futa"
+  "futanari"
+  "futas"
+  "futanaris"
 }}
 
-{{- /* ===== setup ===== */ -}}
 {{ $argLength := (len (split (joinStr " " .Args) " ")) }}
 {{ $advert_rule := (joinStr "" "[#advert_rules](" "https://discordapp.com/channels/" (.Message.GuildID) "/462444993529905172)") }}
 {{ $msgKey := (joinStr "" "lastMsg_" (.Message.ChannelID)) }}
@@ -51,9 +26,6 @@
     {{ $longFormChannel = (joinStr "" "[#fandom_adverts](" "https://discordapp.com/channels/" (.Message.GuildID) "/504322252611780609)") }}
   {{ else if eq .Channel.Name "quick_originals" }}
     {{ $longFormChannel = (joinStr "" "[#original_adverts](" "https://discordapp.com/channels/" (.Message.GuildID) "/504322272618610688)") }}
-  {{ else if eq .Channel.Name "nsfw_quick_search" }}
-    {{ $longFormChannel = (joinStr "" "[#nsfw_original_ads](" "https://discordapp.com/channels/" (.Message.GuildID) "/635906684489039902) or [#nsfw_fandom_plots](" "https://discordapp.com/channels/" (.Message.GuildID) "/635906716579528714)") }}
-    {{ $channelPlural = "these channels" }}
   {{ end }}
   {{ sendDM (cembed
     "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because it exceeds the hundred word limit for the quick search channels. Here is the message that was not posted: ")
@@ -102,18 +74,14 @@
   {{ return }}
 {{ end }}
 
-{{- /* ===== POST IS KEPT — record it, schedule the reaction check ===== */ -}}
+{{- /* ===== POST IS KEPT — record it ===== */ -}}
 {{ dbSet .User.ID $msgKey (str .Message.ID) }}
 {{ dbSet .User.ID $timeKey .Message.Timestamp.Parse }}
-
-{{ if $reactionCheck }}
-  {{ execCC $reactionCheck nil $delaySeconds (sdict
-    "msgID"          .Message.ID
-    "channelID"      .Channel.ID
-    "userMention"    (printf "<@%d>" .User.ID)
-    "channelMention" (printf "<#%d>" .Channel.ID)
-  ) }}
-{{ end }}
+{{- /* NOTE: the reaction check is scheduled by the QUICK-CHANNEL STICKY (the
+       old post_timer logic, folded in there), NOT here. On non-premium YAGPDB a
+       command may make only ONE execCC call per run, and this command spends it
+       on the #rule_infractions re-stick at the bottom. The sticky fires on the
+       same post and has its own budget, so it carries the reaction-check call. */ -}}
 
 {{ $issues := cslice }}
 
@@ -136,11 +104,11 @@
   {{ $issues = $issues.Append "Headers aren't allowed in the quick search channels. You're welcome to use regular **bold** instead." }}
 {{ end }}
 
-{{- /* --- ADVISORY: banned words (substring, case-insensitive) --- */ -}}
+{{- /* --- ADVISORY: banned words (whole word, case-insensitive) --- */ -}}
 {{ if gt (len $banned) 0 }}
   {{ $escaped := cslice }}
   {{ range $banned }}{{ $escaped = $escaped.Append (reQuoteMeta .) }}{{ end }}
-  {{ $hits := reFindAll (printf "(?i)\\S*(?:%s)\\S*" (joinStr "|" $escaped)) .Message.Content }}
+  {{ $hits := reFindAll (printf "(?i)\\b(?:%s)\\b" (joinStr "|" $escaped)) .Message.Content }}
   {{ if gt (len $hits) 0 }}
     {{ $seen := sdict }}
     {{ $spoilered := cslice }}
@@ -178,7 +146,7 @@
     {{ end }}
   {{ end }}
   {{ if $dupChannel }}
-    {{ $issues = $issues.Append (printf "It looks identical to your ad in <#%s>. The same advert can't be posted in more than one channel." $dupChannel) }}
+    {{ $issues = $issues.Append (printf "It looks identical to your ad in <#%s>. Adverts in different channels must be distinctly different from one another." $dupChannel) }}
   {{ end }}
 {{ end }}
 
@@ -187,4 +155,9 @@
   {{ $body := "" }}
   {{ range $issues }}{{ $body = joinStr "" $body "\n• " . }}{{ end }}
   {{ sendMessage $infractionsChannel (printf "Hey %s ! A few things to fix in your post in %s:%s\n\nPlease edit your post. Thanks!" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID) $body) }}
+  {{/* Re-stick the #rule_infractions sticky beneath the ping we just posted.
+       The sticky's own `.*` trigger never fires on this bot message. */}}
+  {{ if $infractionsSticky }}{{ execCC $infractionsSticky $infractionsChannel 1 (sdict "stickyChannel" $infractionsChannel) }}{{ end }}
+  {{/* Flag the post for staff follow-up. */}}
+  {{ if $staffPending }}{{ addReactions $staffPending }}{{ end }}
 {{ end }}

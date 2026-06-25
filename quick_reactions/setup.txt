@@ -41,7 +41,13 @@ STEP 1 — CREATE THE "Reaction Check" COMMAND
 5. Also in the pasted code, set:
        {{ $advertRules := 0 }}
    Replace the 0 with a paste of #advert_rules channel ID.
-5. Save the command.
+5b. Also set:
+       {{ $infractionsSticky := 0 }}
+   Replace the 0 with the "#rule_infractions sticky" command ID (see the
+   infractions_sticky setup). This lets the sticky drop back below each
+   reminder this command posts. If you leave it 0, the reminder still sends —
+   the sticky just won't re-stick beneath it.
+6. Save the command.
 6. Find this command's ID: open/edit it in YAGPDB dashboard and look at the
    page URL — it ends in a number.
    e.g. .../customcommands/commands/1234/  → the ID is 1234.

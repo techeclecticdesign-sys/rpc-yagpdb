@@ -13,7 +13,11 @@ everything for the quick search channels:
                          enforced here)
   • banned words        (was: banned_words)
   • cross-channel duplicate detection (was: cross_channel_dupes)
-  • schedules the reaction check on kept posts (was: post_timer)
+
+The reaction check (was: post_timer) is scheduled by the QUICK-CHANNEL STICKY,
+not by this command — see STEP 2b for why. On non-premium YAGPDB a command may
+make only one execCC call per run, and this command spends it re-sticking the
+#rule_infractions sticky.
 
 Drops the quick channels from 6 message-triggered commands to 2 (this + the
 sticky), under YAGPDB's limit of 3 per message. This is the channel that was
@@ -30,9 +34,10 @@ BEFORE YOU START
 ----------------
 Have ready:
   • #rule_infractions channel ID
-  • the "Reaction Check" command ID (the existing reaction_check command — its
-    page URL ends in a number). Keep reaction_check itself; only post_timer is
-    being folded in.
+  • #rule_infractions sticky command ID
+  • the "Reaction Check" command ID (its page URL ends in a number). Keep
+    reaction_check itself; only post_timer is being folded in — into the
+    quick-channel sticky (STEP 2b), NOT this command.
 
 
 STEP 1 — REPLACE THE QUICK CHANNELS COMMAND
@@ -45,21 +50,39 @@ STEP 1 — REPLACE THE QUICK CHANNELS COMMAND
 3. Replace all the code with the contents of quick_advert.go.
 4. Set the config values near the top:
        {{ $infractionsChannel := 0 }}   → your #rule_infractions channel ID
-       {{ $reactionCheck := 0 }}        → your Reaction Check command ID
-       {{ $delaySeconds := 300 }}       → reaction-check wait (300 = 5 min)
+       {{ $infractionsSticky := 0 }}    → your #rule_infractions sticky command ID
        {{ $banned := cslice ... }}      → your lowercase banned words
    (Keep the banned list identical to group_advert and 1x1_advert.)
+   The reaction check is NOT configured here — it lives in the quick-channel
+   sticky now (STEP 2b).
 5. Save.
 
 
 STEP 2 — REMOVE THE NOW-REDUNDANT COMMANDS FROM THE QUICK CHANNELS
 ------------------------------------------------------------------
 • link_alerts          — DELETE entirely (it was quick-only).
-• post_timer           — DELETE entirely (its scheduling is now inlined here).
-                         KEEP reaction_check — this command still calls it.
+• post_timer           — DELETE entirely. Its scheduling moves into the
+                         quick-channel STICKY (STEP 2b), NOT this command.
+                         KEEP reaction_check — the sticky now calls it.
 • banned_words         — now safe to DELETE entirely (all three channel types
                          are migrated). Or remove the quick channels from its list.
 • cross_channel_dupes  — now safe to DELETE entirely. Or remove the quick channels.
+
+
+STEP 2b — MOVE THE REACTION-CHECK SCHEDULE INTO THE QUICK-CHANNEL STICKY
+-----------------------------------------------------------------------
+The quick advert command may make only ONE execCC call per run on non-premium
+YAGPDB, and it uses that to re-stick the #rule_infractions sticky. So the
+reaction-check schedule (formerly post_timer) goes into the quick-channel
+sticky, which fires on the same post and has its own execCC budget.
+
+1. Open your quick-channel sticky command (Regex .* trigger, re-pins the
+   "Adverts can be posted once every four days" message — see
+   quickchannelsstick.go).
+2. Append the reaction-check block shown at the bottom of quickchannelsstick.go.
+3. Set {{ $checkCC := 0 }} to your Reaction Check command ID. Leave
+   {{ $delaySeconds := 300 }} for a 5-minute wait.
+4. Save.
 
 
 STEP 3 — FINAL CLEANUP (after this command is verified)
@@ -87,7 +110,8 @@ In a quick channel, confirm only this command and the sticky run there. Then:
 7. Valid advert with a banned word → STAYS + ping, word in ||spoilers||.
 8. Same advert in two channels → 2nd STAYS + duplicate ping.
 9. Over-length advert that also has a link → DELETED with length DM, NO link
-   ping, and NO reaction check scheduled (post is gone).
+   ping. (The sticky still schedules a reaction check for it, but that no-ops:
+   reaction_check re-fetches the post, finds it deleted, and stops.)
 
 Advisory checks (link/banned/duplicate) PING, they don't delete, and only run on
 a KEPT post — so test with a user who is NOT on cooldown.

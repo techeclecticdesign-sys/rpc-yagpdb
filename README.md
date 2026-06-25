@@ -1,37 +1,54 @@
 # 🐉 RPC YAGPDB Bot
 
-This project holds new bot code for the RPC YAGPDB bot. I am striving to automate some common staff tasks so that our current staff can focus on other aspects of managing the server.
+This project holds the custom-command code running on the RPC YAGPDB bot. It
+automates common staff tasks — mostly advert-channel enforcement — so staff
+don't have to hand-check every post.
 
 ## 🗺️ Layout
 
-Each folder contains:
+Each folder holds the Go template that gets pasted into the YAGPDB dashboard, a
+`setup.txt` with install instructions, and screenshots of the dashboard
+settings.
 
-- 🖼️ **Screenshot images** showing what settings are used in the bot dashboard.
-- 📜 **A text file** describing how to set up the code in the dashboard.
-- 🪄 **A Go template file** containing the code for the bot, which is pasted into the dashboard.
+## ✨ Features
 
-## 📚 Commands
+### 📢 Advert enforcement — [consolidated_advert_commands](consolidated_advert_commands/)
 
-- ⚔️ **[quick_reactions](quick_reactions/)** — When a new post is made in the quick-search advert channels, a timer starts and, after a short delay, the bot checks that the post has at least three unique approved roleplay reactions. If it doesn't, the author is pinged in #rule_infractions and asked to add them. This keeps quick adverts properly tagged without staff hand-checking every post.
+One command per advert channel type (**quick**, **one-on-one**, **group**), each
+running the whole check pipeline on every post:
 
-- 🔗 **[link_alerts](link_alerts/)** — Watches the quick-search advert channels for messages containing http/https links. When one is found, the bot pings the author in #rule_infractions and asks them to remove the link from their ad.
+- **Hard rules — delete the post + DM the author:** over the length limit,
+  posting again before the cooldown expires, or already having an advert in that
+  channel.
+- **Advisory rules — keep the post + one ping in #rule_infractions:** links
+  (quick), images/attachments (quick & 1x1), Discord headers (quick & 1x1; group
+  allows a single short header line), banned words (shown in ||spoilers||), and
+  the same advert copy-pasted across more than one channel.
 
-- 📜 **[header_alerts](header_alerts/)** — Watches the one-on-one advert channels for Discord header text (`#`, `##`, `###`), which isn't allowed there. When a header is used, the bot pings the author in #rule_infractions to remove it (regular bold is still fine).
+Folding every check into a single per-channel command keeps each advert channel
+under YAGPDB's cap of 3 message-triggered commands per post.
 
-- 🖼️ **[no_images_in_1x1](no_images_in_1x1/)** — Watches the 1x1 advert channels for posts with an uploaded image or file attachment, which aren't allowed there. When one is found, the bot pings the author in #rule_infractions and asks them to remove it from their ad.
+### ✅ Quick-advert reaction requirement — [quick_reactions](quick_reactions/)
 
-- 📏 **[group_header_check](group_header_check/)** — Enforces the header rules in the group advert channels: only one header line is allowed per post, and if that is exceeded the author is pinged in #rule_infractions to fix it.
+Quick adverts must carry at least three approved roleplay reaction tags. A few
+minutes after a post, `reaction_check` re-reads it and, if it's short on tags,
+pings the author in #rule_infractions to add them.
 
-- 📨 **[alert_sender](alert_sender/)** — Shared helper used by `link_alerts`, `header_alerts`, `no_images_in_1x1`, and `group_header_check`. Instead of pinging directly, those commands hand their message to this one with a short delay; it then pings #rule_infractions only if the post still exists. This stops the author being pinged about a post that the length/cooldown/duplicate command already deleted, and keeps the #rule_infractions channel ID configured in one place.
+### 🧹 Advert reaction cleanup — [autoremove_reactions](autoremove_reactions/)
 
-- 🚫 **[banned_words](banned_words/)** — Watches the advert channels for a configurable list of banned words. If any word in a post contains a banned word as a substring (case-insensitive), the bot pings the author in #rule_infractions, links to the channel, and shows the offending word(s) in ||spoiler tags||. Routes through `alert_sender`.
+On the advert channels, reactions added by anyone who isn't the original poster
+or a staff member are removed automatically, and staff-only emojis are protected
+from non-staff use.
 
-- 🪪 **[cross_channel_dupes](cross_channel_dupes/)** — Enforces the "one advert, one channel" rule (o7). When someone posts, it compares the new ad against that user's current ads in the other advert channels (found in one database query via their stored `lastMsg_` keys) and, if it finds a verbatim/copy-paste match, pings the author in #rule_infractions to differentiate or remove one. Routes through `alert_sender`, so a post already deleted for length/cooldown won't trigger a duplicate ping.
+### 📌 #rule_infractions sticky — [infractions_sticky](infractions_sticky/)
 
-- 🧹 **[autoremove_reactions](autoremove_reactions/)** — Extending an existing command to cover all advert channels (1x1 and group).
+Keeps the sticky pinned to the bottom of #rule_infractions even though the bot's
+own infraction pings would otherwise bury it — a plain sticky's `.*` trigger
+never fires on the bot's own messages, so the advert commands re-pin it via
+`execCC` right after they post a ping.
 
-- 🛡️ **[2000_char_advert_fix](2000_char_advert_fix/)** — A fix (not a new command) for the long-form advert length check, which was wrongly deleting posts that were actually under Discord's 2,000-character limit. It switches the check to character counting with `toRune`.
+### 🩹 Member intros — [member_intros_fix](member_intros_fix/)
 
-- 🛡️ **[2000_char_group_advert_fix](2000_char_group_advert_fix/)** — The same length-check fix applied to the group advert command, which had the identical byte-counting bug.
-
-- 🩹 **[member_intros_fix](member_intros_fix/)** — A fix (not a new command) for the member-intros command: it switches the length check to character counting, and fixes a bug where the duplicate-intro lock stopped working after a single collision.
+Validates posts in the member-introductions channel: enforces the character
+limit and allows only one intro per member, DMing the author and removing the
+post when either rule is broken.
