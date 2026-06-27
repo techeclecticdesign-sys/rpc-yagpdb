@@ -1,0 +1,80 @@
+INFRACTION RE-CHECK — SETUP
+===========================
+
+WHAT THIS IS
+------------
+A staged follow-up that removes the :staffpending: reaction from an infracted
+advert once the author has actually fixed it. After an advert command pings a
+post and adds :staffpending:, this command re-checks the post at roughly 10, 45,
+90, and 480 minutes (8h). The first time it comes back clean, it removes the
+reaction and stops. If it's still broken at the 8h check, :staffpending: is left
+on for staff to handle by hand.
+
+WHY IT'S BUILT THIS WAY (YAGPDB limits)
+---------------------------------------
+A custom command may only make ONE execCC / scheduleUniqueCC call per run on a
+non-premium server (they share the same budget). The advert command already
+spends that one call re-sticking the #rule_infractions sticky, so it can't also
+start this chain. Two things make it work anyway:
+
+  • infractions_sticky runs in its own execution and otherwise uses none of that
+    budget, so IT starts the chain (stage 1) after re-sticking.
+  • Each later stage is a delayed scheduleUniqueCC call, and a delayed call runs
+    as a fresh, independent execution — so every stage has its own 1-call budget
+    and can schedule the next one. The chain length is irrelevant to the limit.
+
+The schedule uses the key "infr_<msgID>", so there's exactly one chain per post.
+
+
+STEP 1 — CREATE THE COMMAND
+---------------------------
+1. YAGPDB dashboard → Custom Commands → New.
+2. Trigger type: None.  (It only ever runs via scheduleUniqueCC — like
+   reaction_check. Interval/Cron trigger types can't be scheduled this way.)
+3. Paste the contents of infraction_recheck.go.
+4. Save, then open it again and read the command ID from the page URL
+   (.../customcommands/commands/1234/ → 1234).
+
+
+STEP 2 — CONFIGURE IT
+---------------------
+At the top of the code, set:
+
+    {{ $selfCC := 0 }}        → THIS command's own id (from Step 1). Required —
+                                without it the chain stops after stage 1.
+    {{ $staffPending := ... }} → the same :staffpending: name:id the advert
+                                 commands use (copy it from quick_advert.go).
+    {{ $staffApproved := "" }} → the :staffapproved: emoji as name:id. When a
+                                 post comes back clean this is added to the
+                                 #rule_infractions ping to mark it handled. Type
+                                 \:staffapproved: in Discord to read its id, then
+                                 set this to "staffapproved:<id>". Leave "" to
+                                 skip the approval reaction.
+    {{ $banned := cslice ... }} → identical to the three advert commands.
+
+
+STEP 3 — POINT THE STICKY AT IT
+-------------------------------
+Open the #rule_infractions sticky (infractions_sticky.go) and set:
+
+    {{ $recheckCC := 0 }}     → this command's id (from Step 1).
+
+That's the switch that turns the feature on. With it at 0, the advert commands
+and sticky behave exactly as before (ping + re-stick + add :staffpending:, but
+no automatic removal).
+
+
+STEP 4 — VERIFY
+---------------
+1. Post a valid advert that trips one editable advisory (e.g. a link in a quick
+   channel, or a banned word). Confirm the ping + :staffpending: appear.
+2. Within 10 minutes, edit the post to remove the problem.
+3. At the next check (~10 min after the original post) the :staffpending:
+   reaction should disappear on its own, and the #rule_infractions ping should
+   gain a :staffapproved: reaction (if you set $staffApproved).
+4. Leave a second test post unfixed and confirm :staffpending: stays through all
+   four checks and remains after 8h.
+
+Note: an attached image can't be edited off a message, so an image infraction
+only clears when the author deletes + reposts — at which point the original post
+(and its reaction) is gone and the chain simply stops.

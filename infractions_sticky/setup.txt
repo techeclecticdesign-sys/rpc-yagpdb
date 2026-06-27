@@ -76,6 +76,31 @@ That is what makes those commands re-stick the sticky after they post a ping.
 See their own setup files (alert_sender, quick_reactions) for where to paste it.
 
 
+INFRACTION COUNTER (3rd / 4th-strike escalation)
+------------------------------------------------
+This command also counts each person's infractions over a rolling 6-month window
+and escalates:
+  • 3rd infraction in 6 months → the infraction notice gains a warning line.
+  • 4th infraction in 6 months → the person is suspended from posting adverts for
+    14 days (a self-expiring `advertBan` flag the advert commands check), a
+    heads-up is posted to the bot-spam channel so staff know a ban landed, and the
+    person's infraction history is wiped so they start clean once the ban is
+    served (which means the count never climbs past 4).
+
+Set the config near the top of the command:
+       {{ $botSpam := 0 }}   → your bot-spam channel ID (0 disables the heads-up)
+Leave $infrWindowSecs (180 days) and $advertBanSecs (14 days) unless you want to
+change those durations.
+
+The count is stored as ONE database entry per user — a list of infraction
+timestamps under the key `infractionDates`, pruned to the last 6 months on every
+write. The bot's own pings never fire this `.*` trigger, so the advert commands
+count those; THIS branch only counts infractions a human types here by hand
+(matched by the first user @mention in the message). Set the SAME $botSpam,
+$infrWindowSecs, and $advertBanSecs in the three advert commands and reaction
+check so every path counts identically.
+
+
 NOTE ON RAPID-FIRE PINGS
 ------------------------
 If several infractions land in the same second, each one nudges the sticky, and —

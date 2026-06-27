@@ -2,6 +2,9 @@
 {{ $lockoutHours := 96 }}
 {{ $infractionsChannel := 0 }}
 {{ $infractionsSticky := 0 }}
+{{ $botSpam := 0 }}
+{{ $infrWindowSecs := 15552000 }}{{/* 180 days */}}
+{{ $advertBanSecs := 1209600 }}{{/* 14 days */}}
 {{ $staffPending := "staffpending:1442331141771366513" }}
 {{ $banned := cslice
   "futa"
@@ -18,6 +21,30 @@
 {{ $name := .User.Username }}
 {{ if .Member.Nick }}{{ $name = .Member.Nick }}{{ end }}
 
+{{- /* Shared embed boilerplate (identical across all three DMs below). */ -}}
+{{ $icon := "https://i.ibb.co/mt5sNFb/Main.png" }}
+{{ $author := (sdict "name" "Roleplay Central Database" "icon_url" $icon) }}
+{{ $thumb := (sdict "url" $icon) }}
+{{ $footer := (joinStr "" "For additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions.") }}
+
+{{- /* ===== 0. ADVERT BAN ===== */ -}}
+{{ $ban := dbGet .User.ID "advertBan" }}
+{{ if $ban.Value }}
+  {{ $remaining := $ban.ExpiresAt.Sub currentTime }}
+  {{ if ge (toInt $remaining.Seconds) 0 }}
+    {{ sendDM (cembed
+      "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because your advertising privileges are temporarily suspended after four or more infractions within six months. Here is the message that was not posted: ")
+      "description" .Message.Content
+      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**Your advertising privileges will be restored on " (printf "<t:%d:F>" (toInt $ban.ExpiresAt.Unix)) ".\n\n" $footer "**") "inline" false))
+      "color" 14905344
+      "author" $author
+      "thumbnail" $thumb
+    ) }}
+    {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
+    {{ return }}
+  {{ end }}
+{{ end }}
+
 {{- /* ===== 1. LENGTH (word count) ===== */ -}}
 {{ if ge $argLength $maxLength }}
   {{ $longFormChannel := "" }}
@@ -30,10 +57,10 @@
   {{ sendDM (cembed
     "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because it exceeds the hundred word limit for the quick search channels. Here is the message that was not posted: ")
     "description" .Message.Content
-    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**" "If you want to keep the current length of your post please move it to " $longFormChannel ". Please note all advertisements on " $channelPlural " must be kept to one non-Nitro length Discord post, but can include a link to a Google Doc with additional information.\n\nIf you want to keep your post in the current channel, you must shorten it to be at or under 100 words and re-send your ad once it's within that word limit. You can check your eligibility in our 'Can I post' channel. Keep in mind a lot of information may be given using the Quick Reaction Tags.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions." "**") "inline" false))
+    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**" "If you want to keep the current length of your post please move it to " $longFormChannel ". Please note all advertisements on " $channelPlural " must be kept to one non-Nitro length Discord post, but can include a link to a Google Doc with additional information.\n\nIf you want to keep your post in the current channel, you must shorten it to be at or under 100 words and re-send your ad once it's within that word limit. You can check your eligibility in our 'Can I post' channel. Keep in mind a lot of information may be given using the Quick Reaction Tags.\n\n" $footer "**") "inline" false))
     "color" 14905344
-    "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
-    "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
+    "author" $author
+    "thumbnail" $thumb
   ) }}
   {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
   {{ return }}
@@ -49,10 +76,10 @@
     {{ sendDM (cembed
       "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because you have posted an advertisement on this channel too recently. Here is the message that was not posted: ")
       "description" .Message.Content
-      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**You are free to wait and post again in " (humanizeDurationMinutes $remaining) ", once your post cooldown has expired. You can check your eligibility to repost in our 'Can I Post' channel.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions.**") "inline" false))
+      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**You are free to wait and post again in " (humanizeDurationMinutes $remaining) ", once your post cooldown has expired. You can check your eligibility to repost in our 'Can I Post' channel.\n\n" $footer "**") "inline" false))
       "color" 14905344
-      "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
-      "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
+      "author" $author
+      "thumbnail" $thumb
     ) }}
     {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
     {{ return }}
@@ -65,10 +92,10 @@
   {{ sendDM (cembed
     "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because you already have an advertisement on this channel. Here is the message that was not posted: ")
     "description" .Message.Content
-    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**You are free to delete your [old advert](" "https://discordapp.com/channels/" (.Message.GuildID) "/" (.Message.ChannelID) "/" ($lastMsgId) "). Once you have successfully posted a new advert your cooldown period will be restarted. You can check your eligibility to repost in our 'Can I Post' channel.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions.**") "inline" false))
+    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**You are free to delete your [old advert](" "https://discordapp.com/channels/" (.Message.GuildID) "/" (.Message.ChannelID) "/" ($lastMsgId) "). Once you have successfully posted a new advert your cooldown period will be restarted. You can check your eligibility to repost in our 'Can I Post' channel.\n\n" $footer "**") "inline" false))
     "color" 14905344
-    "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
-    "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
+    "author" $author
+    "thumbnail" $thumb
   ) }}
   {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
   {{ return }}
@@ -77,11 +104,8 @@
 {{- /* ===== POST IS KEPT — record it ===== */ -}}
 {{ dbSet .User.ID $msgKey (str .Message.ID) }}
 {{ dbSet .User.ID $timeKey .Message.Timestamp.Parse }}
-{{- /* NOTE: the reaction check is scheduled by the QUICK-CHANNEL STICKY (the
-       old post_timer logic, folded in there), NOT here. On non-premium YAGPDB a
-       command may make only ONE execCC call per run, and this command spends it
-       on the #rule_infractions re-stick at the bottom. The sticky fires on the
-       same post and has its own budget, so it carries the reaction-check call. */ -}}
+{{- /* Reaction check is scheduled by the quick-channel sticky, not here: only
+       one execCC per run, spent on the #rule_infractions re-stick. */ -}}
 
 {{ $issues := cslice }}
 
@@ -154,10 +178,41 @@
 {{ if gt (len $issues) 0 }}
   {{ $body := "" }}
   {{ range $issues }}{{ $body = joinStr "" $body "\n• " . }}{{ end }}
-  {{ sendMessage $infractionsChannel (printf "Hey %s ! A few things to fix in your post in %s:%s\n\nPlease edit your post. Thanks!" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID) $body) }}
-  {{/* Re-stick the #rule_infractions sticky beneath the ping we just posted.
-       The sticky's own `.*` trigger never fires on this bot message. */}}
-  {{ if $infractionsSticky }}{{ execCC $infractionsSticky $infractionsChannel 1 (sdict "stickyChannel" $infractionsChannel) }}{{ end }}
+
+  {{- /* infraction count — prune to 6-month window, append now */ -}}
+  {{ $cutoff := (add (toInt currentTime.Unix) (mult $infrWindowSecs -1)) }}
+  {{ $dates := cslice }}
+  {{ $prev := (dbGet .User.ID "infractionDates").Value }}
+  {{ if $prev }}{{ range $prev }}{{ if ge (toInt .) $cutoff }}{{ $dates = $dates.Append (toInt .) }}{{ end }}{{ end }}{{ end }}
+  {{ $dates = $dates.Append (toInt currentTime.Unix) }}
+  {{ $count := len $dates }}
+  {{ dbSet .User.ID "infractionDates" $dates }}
+
+  {{- /* escalation line in the ping */ -}}
+  {{ $suffix := "" }}
+  {{ if eq $count 3 }}
+    {{ $suffix = "\n\n⚠️ **This is your 3rd infraction within six months.** Further infractions will result in a temporary suspension of your advertising privileges." }}
+  {{ else if ge $count 4 }}
+    {{ $suffix = "\n\n⛔ **This is your 4th infraction within six months.** Your advertising privileges have been suspended for 14 days." }}
+  {{ end }}
+
+  {{ $pingID := sendMessageRetID $infractionsChannel (printf "Hey %s ! A few things to fix in your post in %s:%s\n\nPlease edit your post. Thanks!%s" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID) $body $suffix) }}
+
+  {{- /* 4th: 14-day advert ban + wipe history + bot-spam alert */ -}}
+  {{ if ge $count 4 }}
+    {{ dbSetExpire .User.ID "advertBan" (toInt currentTime.Unix) $advertBanSecs }}
+    {{ dbDel .User.ID "infractionDates" }}
+    {{ if $botSpam }}{{ sendMessage $botSpam (printf "⛔ <@%d> just hit their **4th infraction in 6 months** (latest in %s) and has been suspended from posting adverts for 14 days." .User.ID (printf "<#%d>" .Channel.ID)) }}{{ end }}
+  {{ end }}
+  {{/* execCC re-sticks under this ping and hands the post to the sticky to
+       start the :staffpending: re-check chain. */}}
+  {{ if $infractionsSticky }}{{ execCC $infractionsSticky $infractionsChannel 1 (sdict
+    "stickyChannel"  $infractionsChannel
+    "recheckMsgID"   .Message.ID
+    "recheckChannel" .Channel.ID
+    "recheckType"    "quick"
+    "infractionMsgID" $pingID
+  ) }}{{ end }}
   {{/* Flag the post for staff follow-up. */}}
   {{ if $staffPending }}{{ addReactions $staffPending }}{{ end }}
 {{ end }}

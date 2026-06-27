@@ -1,0 +1,71 @@
+INFRACTION ADMIN COMMAND — SETUP
+================================
+
+WHAT THIS IS
+------------
+One staff slash command, /infractions, that manages the advert-infraction counter
+the advert commands maintain (the per-user `infractionDates` list + `advertBan`
+flag). You pick an action, then a user (and a count for "set"):
+
+  /infractions  action: view   user: @someone            → show count + ban status
+  /infractions  action: clear  user: @someone            → wipe history AND lift ban
+  /infractions  action: set    user: @someone  count: N  → set the count (1-99)
+
+The "user" argument is a User-type slash option, which Discord shows as a
+member-picker you type to autocomplete — so you can't pick the wrong person.
+
+Using one command (with an action menu) instead of three keeps you to a single
+slash-command slot — YAGPDB allows only 3 enabled slash CCs on a free server.
+
+
+HOW SLASH OPTIONS WORK
+----------------------
+The picker/menus come from OPTIONS you add in the dashboard, NOT from the code's
+arguments. You define each option (Name, Type, Required) in the command's Options
+section, and the code reads it as {{ .Options.<name> }}.
+
+
+CREATE THE COMMAND
+------------------
+  1. Dashboard → Custom Commands → Create New.
+  2. Trigger type:  Slash Command.
+  3. Trigger (name), lowercase:  infractions
+  4. Description:  e.g. "Manage a member's advert infractions".
+  5. OPTIONS — add these THREE, in order (Names must match EXACTLY — the code
+     reads them by name):
+
+       a) Name = action   Type = Text menu   Required ✔
+          Add three choices. The Value MUST be lowercase and match the code;
+          the Name is just the label you see:
+              Label "View"   Value view
+              Label "Clear"  Value clear
+              Label "Set"    Value set
+
+       b) Name = user     Type = User        Required ✔
+
+       c) Name = count    Type = Integer     Required ✗  (leave OFF — only "set"
+          uses it; making it required would force a number on view/clear too)
+
+  6. Response: paste infractions.go.
+  7. Make sure the command is ENABLED, then Save.
+
+No channel/role IDs to fill in — it reads/writes the same database the advert
+commands use, keyed by the picked user.
+
+
+RESTRICT TO STAFF  (IMPORTANT)
+------------------------------
+This edits moderation state, so lock it down:
+  • Discord: Server Settings → Integrations → YAGPDB → /infractions → set which
+    roles/members can use it. This is Discord's own gate and the reliable one —
+    without it the command shows for everyone.
+  • Optionally also restrict it to a staff-only channel in the dashboard.
+
+
+VISIBILITY
+----------
+  • action "view" replies ephemerally (only you see it) — it's a lookup.
+  • action "clear" and "set" reply visibly, so the action (and who ran it — Discord
+    shows that on the message) is recorded. Restrict the command to a staff channel
+    and that channel becomes your audit log.
+

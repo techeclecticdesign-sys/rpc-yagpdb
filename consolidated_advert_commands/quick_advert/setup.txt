@@ -51,8 +51,11 @@ STEP 1 — REPLACE THE QUICK CHANNELS COMMAND
 4. Set the config values near the top:
        {{ $infractionsChannel := 0 }}   → your #rule_infractions channel ID
        {{ $infractionsSticky := 0 }}    → your #rule_infractions sticky command ID
+       {{ $botSpam := 0 }}              → your bot-spam channel ID (3rd+ heads-up)
        {{ $banned := cslice ... }}      → your lowercase banned words
-   (Keep the banned list identical to group_advert and 1x1_advert.)
+   (Keep the banned list AND $botSpam / $infrWindowSecs / $advertBanSecs identical
+   across group_advert, 1x1_advert, reaction_check and the sticky, so the
+   infraction counter behaves the same on every path.)
    The reaction check is NOT configured here — it lives in the quick-channel
    sticky now (STEP 2b).
 5. Save.

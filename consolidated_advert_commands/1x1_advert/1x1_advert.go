@@ -2,6 +2,9 @@
 {{ $lockoutHours := 96 }}
 {{ $infractionsChannel := 0 }}
 {{ $infractionsSticky := 0 }}
+{{ $botSpam := 0 }}
+{{ $infrWindowSecs := 15552000 }}{{/* 180 days */}}
+{{ $advertBanSecs := 1209600 }}{{/* 14 days */}}
 {{ $staffPending := "staffpending:1442331141771366513" }}
 {{ $banned := cslice
   "futa"
@@ -17,6 +20,24 @@
 {{ $oldTimeKey := (joinStr "" "lastMsgTime_" (.Message.ChannelID)) }}
 {{ $name := .User.Username }}
 {{ if .Member.Nick }}{{ $name = .Member.Nick }}{{ end }}
+
+{{- /* ===== 0. ADVERT BAN ===== */ -}}
+{{ $ban := dbGet .User.ID "advertBan" }}
+{{ if $ban.Value }}
+  {{ $remaining := $ban.ExpiresAt.Sub currentTime }}
+  {{ if ge (toInt $remaining.Seconds) 0 }}
+    {{ sendDM (cembed
+      "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because your advertising privileges are temporarily suspended after four or more infractions within six months. Here is the message that was not posted: ")
+      "description" .Message.Content
+      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**Your advertising privileges will be restored on " (printf "<t:%d:F>" (toInt $ban.ExpiresAt.Unix)) ". Please feel free to reach out to a member of the RPC moderation team if you have any questions.**") "inline" false))
+      "color" 14905344
+      "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
+      "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
+    ) }}
+    {{ deleteMessage .Message.ChannelID .Message.ID 1 }}
+    {{ return }}
+  {{ end }}
+{{ end }}
 
 {{- /* ===== 1. LENGTH ===== */ -}}
 {{ if gt $argLength $maxLength }}
@@ -137,9 +158,40 @@
 {{ if gt (len $issues) 0 }}
   {{ $body := "" }}
   {{ range $issues }}{{ $body = joinStr "" $body "\n• " . }}{{ end }}
-  {{ sendMessage $infractionsChannel (printf "Hey %s ! A few things to fix in your post in %s:%s\n\nPlease edit your post. Thanks!" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID) $body) }}
-  {{/* Re-stick the #rule_infractions sticky beneath the ping we just posted.
-       The sticky's own `.*` trigger never fires on this bot message. */}}
-  {{ if $infractionsSticky }}{{ execCC $infractionsSticky $infractionsChannel 1 (sdict "stickyChannel" $infractionsChannel) }}{{ end }}
+
+  {{- /* infraction count — prune to 6-month window, append now */ -}}
+  {{ $cutoff := (add (toInt currentTime.Unix) (mult $infrWindowSecs -1)) }}
+  {{ $dates := cslice }}
+  {{ $prev := (dbGet .User.ID "infractionDates").Value }}
+  {{ if $prev }}{{ range $prev }}{{ if ge (toInt .) $cutoff }}{{ $dates = $dates.Append (toInt .) }}{{ end }}{{ end }}{{ end }}
+  {{ $dates = $dates.Append (toInt currentTime.Unix) }}
+  {{ $count := len $dates }}
+  {{ dbSet .User.ID "infractionDates" $dates }}
+
+  {{- /* escalation line in the ping */ -}}
+  {{ $suffix := "" }}
+  {{ if eq $count 3 }}
+    {{ $suffix = "\n\n⚠️ **This is your 3rd infraction within six months.** Further infractions will result in a temporary suspension of your advertising privileges." }}
+  {{ else if ge $count 4 }}
+    {{ $suffix = "\n\n⛔ **This is your 4th infraction within six months.** Your advertising privileges have been suspended for 14 days." }}
+  {{ end }}
+
+  {{ $pingID := sendMessageRetID $infractionsChannel (printf "Hey %s ! A few things to fix in your post in %s:%s\n\nPlease edit your post. Thanks!%s" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID) $body $suffix) }}
+
+  {{- /* 4th: 14-day advert ban + wipe history + bot-spam alert */ -}}
+  {{ if ge $count 4 }}
+    {{ dbSetExpire .User.ID "advertBan" (toInt currentTime.Unix) $advertBanSecs }}
+    {{ dbDel .User.ID "infractionDates" }}
+    {{ if $botSpam }}{{ sendMessage $botSpam (printf "⛔ <@%d> just hit their **4th infraction in 6 months** (latest in %s) and has been suspended from posting adverts for 14 days." .User.ID (printf "<#%d>" .Channel.ID)) }}{{ end }}
+  {{ end }}
+  {{/* execCC re-sticks under this ping and hands the post to the sticky to
+       start the :staffpending: re-check chain. */}}
+  {{ if $infractionsSticky }}{{ execCC $infractionsSticky $infractionsChannel 1 (sdict
+    "stickyChannel"  $infractionsChannel
+    "recheckMsgID"   .Message.ID
+    "recheckChannel" .Channel.ID
+    "recheckType"    "1x1"
+    "infractionMsgID" $pingID
+  ) }}{{ end }}
   {{ if $staffPending }}{{ addReactions $staffPending }}{{ end }}
 {{ end }}
