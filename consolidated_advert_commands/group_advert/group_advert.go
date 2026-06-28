@@ -29,12 +29,12 @@
     {{ sendDM (cembed
       "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because your advertising privileges are temporarily suspended after four or more infractions within six months. Here is the message that was not posted: ")
       "description" .Message.Content
-      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**Your advertising privileges will be restored on " (printf "<t:%d:F>" (toInt $ban.ExpiresAt.Unix)) ". Please feel free to reach out to a member of the RPC moderation team if you have any questions.**") "inline" false))
+      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**Your advertising privileges will be restored on " (printf "<t:%d:F>" (toInt $ban.ExpiresAt.Unix)) ".\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions.**") "inline" false))
       "color" 14905344
       "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
       "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
     ) }}
-    {{ deleteMessage .Message.ChannelID .Message.ID 1 }}
+    {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
     {{ return }}
   {{ end }}
 {{ end }}
@@ -49,7 +49,7 @@
     "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
     "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
   ) }}
-  {{ deleteMessage .Message.ChannelID .Message.ID 1 }}
+  {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
   {{ return }}
 {{ end }}
 
@@ -68,7 +68,7 @@
       "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
       "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
     ) }}
-    {{ deleteMessage .Message.ChannelID .Message.ID 1 }}
+    {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
     {{ return }}
   {{ end }}
 {{ end }}
@@ -84,7 +84,7 @@
     "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
     "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
   ) }}
-  {{ deleteMessage .Message.ChannelID .Message.ID 1 }}
+  {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
   {{ return }}
 {{ end }}
 

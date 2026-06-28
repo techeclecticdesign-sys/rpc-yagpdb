@@ -187,6 +187,10 @@
   {{ $dates = $dates.Append (toInt currentTime.Unix) }}
   {{ $count := len $dates }}
   {{ dbSet .User.ID "infractionDates" $dates }}
+  {{- /* one infraction per post: tag this post so reaction_check (which runs
+         later on the same post) won't count it a second time. 24h guard;
+         message IDs are unique so it can't collide with another post. */ -}}
+  {{ dbSetExpire .User.ID (printf "infrCounted_%v" .Message.ID) 1 86400 }}
 
   {{- /* escalation line in the ping */ -}}
   {{ $suffix := "" }}

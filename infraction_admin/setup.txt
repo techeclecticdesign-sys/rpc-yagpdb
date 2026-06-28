@@ -11,6 +11,10 @@ flag). You pick an action, then a user (and a count for "set"):
   /infractions  action: clear  user: @someone            → wipe history AND lift ban
   /infractions  action: set    user: @someone  count: N  → set the count (1-99)
 
+Setting a count of 4 or more advert-bans the member for 14 days immediately and
+resets their history, exactly as a live 4th infraction would — so "set" is also
+how you apply a ban by hand. Use "clear" to lift it.
+
 The "user" argument is a User-type slash option, which Discord shows as a
 member-picker you type to autocomplete — so you can't pick the wrong person.
 

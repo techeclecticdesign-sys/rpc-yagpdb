@@ -81,6 +81,18 @@ its ping is marked :staffapproved: to close it out. The chain is kicked off by
 the sticky and walks itself forward with `scheduleUniqueCC`, so it stays within
 YAGPDB's one-`execCC`-per-run limit.
 
+### 🔤 Nickname normalizer — [nickname_normalizer](nickname_normalizer/)
+
+Runs on every message in the Age Verification channel and tidies the poster's
+server nickname: it maps "fancy font" Unicode (bold/italic/script/fraktur/
+double-struck/sans/monospace, fullwidth, circled, small-caps, etc.) back to plain
+ASCII (`𝕎𝕠𝕠𝕞𝕒` → Wooma, `𝓓𝑂𝑉𝐸𝑇𝑇𝐸` → Dovette), strips emojis and disallowed
+punctuation (only `!@#$%&+-` are kept, never at the ends), collapses repeated
+spaces, forces alphanumeric first/last characters, and title-cases each word.
+The cleaned name is written back with `editNickname` (which Discord applies on the
+member's next message); an unreadable, all-symbol nickname instead earns a one-per-6h
+DM asking for a readable name.
+
 ### 🩹 Member intros — [member_intros_fix](member_intros_fix/)
 
 Validates posts in the member-introductions channel: enforces the character

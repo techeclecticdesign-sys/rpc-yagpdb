@@ -17,13 +17,15 @@
 
 {{- if eq $action "view" -}}
 {{- $cut := (add (toInt currentTime.Unix) (mult $w -1)) -}}
-{{- $count := 0 -}}{{- $oldest := 0 -}}
+{{- $days := cslice -}}
 {{- $prev := (dbGet $u.ID "infractionDates").Value -}}
-{{- if $prev -}}{{- range $prev -}}{{- $t := toInt . -}}{{- if ge $t $cut -}}{{- $count = add $count 1 -}}{{- if or (eq $oldest 0) (lt $t $oldest) -}}{{- $oldest = $t -}}{{- end -}}{{- end -}}{{- end -}}{{- end -}}
-{{- $lines := cslice (printf "<@%d> has **%d** advert-infraction(s) in the last 6 months." $u.ID $count) -}}
-{{- if gt $count 0 -}}{{- $lines = $lines.Append (printf "Oldest drops off: <t:%d:D>." (add $oldest $w)) -}}{{- end -}}
+{{- if $prev -}}{{- range $prev -}}{{- $t := toInt . -}}{{- if ge $t $cut -}}{{- $days = $days.Append $t -}}{{- end -}}{{- end -}}{{- end -}}
+{{- $count := len $days -}}
 {{- $ban := dbGet $u.ID "advertBan" -}}
-{{- if $ban.Value -}}{{- $lines = $lines.Append (printf "⛔ **Advert-banned** until <t:%d:F>." (toInt $ban.ExpiresAt.Unix)) -}}{{- else -}}{{- $lines = $lines.Append "✅ Not advert-banned." -}}{{- end -}}
+{{- $lines := cslice -}}
+{{- if $ban.Value -}}{{- $lines = $lines.Append (printf "<@%d> is ⛔ Advert-banned until <t:%d:F>." $u.ID (toInt $ban.ExpiresAt.Unix)) -}}{{- else -}}{{- $lines = $lines.Append (printf "<@%d> is ✅ Not advert-banned." $u.ID) -}}{{- end -}}
+{{- $lines = $lines.Append (printf "They have **%d** advert-infraction(s) in the last 6 months." $count) -}}
+{{- if gt $count 0 -}}{{- $lines = $lines.Append "User has infractions on the following days:" -}}{{- range $days -}}{{- $lines = $lines.Append (printf "- <t:%d:D>" .) -}}{{- end -}}{{- end -}}
 {{- ephemeralResponse -}}
 {{ joinStr "\n" $lines }}
 {{- else if eq $action "clear" -}}
@@ -39,8 +41,16 @@ For **set**, provide a count of 1-99. (Use the **clear** action to zero someone 
 {{- else -}}
 {{- $now := toInt currentTime.Unix -}}{{- $dates := cslice -}}
 {{- range seq 0 $n -}}{{- $dates = $dates.Append $now -}}{{- end -}}
+{{- if ge $n 4 -}}
+{{- dbSetExpire $u.ID "advertBan" $now 1209600 -}}{{/* 14-day ban — keep equal to the advert commands */}}
+{{- dbDel $u.ID "infractionDates" -}}
+Set <@{{ $u.ID }}>'s advert-infraction count to **{{ $n }}** — that's at or over the limit, so they've been advert-banned for 14 days (history reset, same as a live 4th infraction).
+{{- else -}}
+{{- $wasBanned := false -}}{{- if (dbGet $u.ID "advertBan").Value -}}{{- $wasBanned = true -}}{{- end -}}
 {{- dbSet $u.ID "infractionDates" $dates -}}
-Set <@{{ $u.ID }}>'s advert-infraction count to **{{ $n }}** (counted from now, expiring in 6 months).{{ if ge $n 4 }} Note: this does not advert-ban them; the ban applies on their next infraction.{{ end }}
+{{- dbDel $u.ID "advertBan" -}}
+Set <@{{ $u.ID }}>'s advert-infraction count to **{{ $n }}** (counted from now, expiring in 6 months).{{ if $wasBanned }} That's below the limit, so their active advert ban has been lifted.{{ end }}
+{{- end -}}
 {{- end -}}
 {{- else -}}
 Unknown action.

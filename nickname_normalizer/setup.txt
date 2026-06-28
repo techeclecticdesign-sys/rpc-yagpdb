@@ -1,0 +1,103 @@
+NICKNAME NORMALIZER — SETUP
+===========================
+
+WHAT THIS DOES
+--------------
+Runs on every message in the Age Verification channel. It looks at the poster's
+CURRENT server nickname (or their username if they have no nickname), cleans it
+up, and — if the cleaned version is different — sets it as their nickname.
+
+Cleaning steps, in order:
+  1. "Fancy font" letters/digits are mapped back to plain ASCII, e.g.
+        𝕎𝕠𝕠𝕞𝕒   -> Wooma
+        𝓓𝑂𝑉𝐸𝑇𝑇𝐸  -> Dovette
+        Ｗｏｏｍａ   -> Wooma     (fullwidth)
+        ⓙⓞⓗⓝ     -> John      (circled)
+        ᴊᴏʜɴ      -> John      (small caps)
+     Covered styles: bold, italic, bold-italic, script, bold-script, fraktur,
+     bold-fraktur, double-struck, sans-serif (all four), monospace, fullwidth,
+     circled, parenthesized, squared, negative-squared, regional-indicator, and
+     small-caps — i.e. essentially everything the common "fancy name generator"
+     sites produce.
+  2. Anything that isn't a letter, digit, space, or one of the allowed specials
+     !@#$%&+-  is removed (emojis, colons, slashes, quotes, apostrophes,
+     brackets, etc.).
+  3. Multiple spaces in a row collapse to one ("My  Name" -> "My Name").
+  4. Leading/trailing spaces and specials are trimmed, so the first and last
+     characters are always alphanumeric.
+  5. Title-case: the first letter of each word is capitalized and the rest
+     lowercased ("jj hopkins" -> "Jj Hopkins"); a leading digit is left as-is.
+  6. Trimmed to Discord's 32-character nickname limit.
+
+If nothing usable is left (e.g. an all-emoji nickname), the bot does NOT set a
+nickname; instead it DMs the member once (at most every 6 hours) asking them to
+pick a readable name.
+
+
+REQUIREMENTS
+------------
+- The bot must have the **Manage Nicknames** permission and a role positioned
+  ABOVE the members it should rename. It cannot rename the server owner (the
+  command skips the owner automatically).
+- IMPORTANT YAGPDB QUIRK: a nickname change does not take effect immediately —
+  Discord/YAGPDB applies it the next time that member sends a message. So a
+  member's nickname will visibly update on their *next* post, not the instant
+  this command runs. This is a platform limitation, not a bug in the command.
+
+
+CREATE THE COMMAND
+------------------
+1. YAGPDB dashboard -> Custom Commands -> New Command.
+
+2. Trigger type: Regex
+
+3. Trigger: (?s).*
+   (Matches every message in the allowed channel.)
+
+4. Channel Restrictions: check "Only run in the following channels" and add your
+   Age Verification channel (and ONLY that channel).
+
+5. Open nickname_normalize.go and copy its entire contents into the code box.
+
+6. (Optional) For a belt-and-suspenders lock, set:
+       {{ $channel := 0 }}
+   Replace the 0 with the Age Verification channel ID (right-click the channel ->
+   Copy Channel ID; needs Developer Mode on). If left 0, the command relies only
+   on the dashboard channel restriction from step 4 — which is enough on its own.
+
+7. Save the command.
+
+
+OPTIONAL — "nametest" DRY-RUN TESTER (nametest.go)
+--------------------------------------------------
+A second, separate command for previewing the normalization WITHOUT changing
+anyone's nickname. Type:  nametest 𝕎𝕠𝕠𝕞𝕒  and the bot replies:
+        Input: 𝕎𝕠𝕠𝕞𝕒
+        Normalized: Wooma
+
+To install it:
+1. Custom Commands -> New Command.
+2. Trigger type: Regex
+3. Trigger: (?i)^nametest\b
+   (Prefix-independent. Alternatively use a Command trigger named "nametest" and
+    change the $display line in the code from the reReplace version to:
+        {{ $display := .StrippedMsg }} )
+4. (Recommended) Restrict it to a staff/bot-test channel so members don't spam it.
+5. Paste nametest.go into the code box and Save.
+
+It shares the exact same normalization logic as the main command, so it's a
+faithful preview. If you ever edit the rules, update BOTH files.
+
+
+NOTES / KNOWN BEHAVIORS
+-----------------------
+- Real accented letters (José, Müller, Łukasz) are PASSED THROUGH unchanged —
+  they are kept as letters, not stripped, and their case is left alone. Only
+  decorative font characters are converted to ASCII. If you ever want accents
+  folded to plain ASCII (José -> Jose) that can be added later.
+- Because step 5 is true title-case, internal capitals are lowercased
+  (McDonald -> Mcdonald). This is what makes all-caps stylized names like
+  𝓓𝑂𝑉𝐸𝑇𝑇𝐸 come out as "Dovette" rather than "DOVETTE".
+- The command is a no-op when the nickname is already clean, so it won't fight
+  members who already have a tidy name, and it can't loop on itself.
+- It ignores other bots.
