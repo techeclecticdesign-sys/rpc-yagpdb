@@ -9,16 +9,21 @@
 {{ if not $data }}{{ return }}{{ end }}
 
 {{/* ▼▼ Paste your #rule_infractions channel ID here (see setup.txt) ▼▼ */}}
-{{ $infractionsChannel := 0 }}
+{{ $infractionsChannel := 641835326314381312 }}
 
 {{/* ▼▼ Paste your #advert_rules channel ID here (see setup.txt) ▼▼ */}}
-{{ $advertRules := 0 }}
+{{ $advertRules := 462444993529905172 }}
 
 {{/* ▼▼ Paste your "#rule_infractions sticky" command ID here (see setup.txt) ▼▼ */}}
-{{ $infractionsSticky := 0 }}
+{{ $infractionsSticky := 60 }}
+
+{{/* ▼▼ The :staffpending: emoji as name:id — MUST match the advert commands and
+       the Infraction Re-check command, or the re-check won't be able to remove
+       it. Leave "" to skip flagging + auto-resolve for reaction infractions. ▼▼ */}}
+{{ $staffPending := "staffpending:1442331141771366513" }}
 
 {{/* ▼▼ Bot-spam channel ID (4th-infraction ban alert). 0 to skip. ▼▼ */}}
-{{ $botSpam := 0 }}
+{{ $botSpam := 406618336508510209 }}
 {{ $infrWindowSecs := 15552000 }}{{/* 180 days */}}
 {{ $advertBanSecs := 1209600 }}{{/* 14 days */}}
 
@@ -72,7 +77,7 @@
     {{ $suffix = "\n\n⛔ **This is your 4th infraction within six months.** Your advertising privileges have been suspended for 14 days." }}
   {{ end }}
 
-  {{ sendMessage $infractionsChannel (printf "Hello %s !  Your post in %s needs at least three unique reactions from the list of roleplay reactions viewable in %s.\n\nPlease add these or your post may be removed. Thank you!%s" $data.userMention $data.channelMention $advertRulesText $suffix) }}
+  {{ $pingID := sendMessageRetID $infractionsChannel (printf "Hello %s !  Your post in %s needs at least three unique reactions from the list of roleplay reactions viewable in %s.\n\nPlease add these or your post may be removed. Thank you!%s" $data.userMention $data.channelMention $advertRulesText $suffix) }}
 
   {{- /* 4th: 14-day advert ban + wipe history + bot-spam alert */ -}}
   {{ if ge $infrCount 4 }}
@@ -81,7 +86,22 @@
     {{ if $botSpam }}{{ sendMessage $botSpam (printf "⛔ <@%d> just hit their **4th infraction in 6 months** (latest in %s) and has been suspended from posting adverts for 14 days." $uid $data.channelMention) }}{{ end }}
   {{ end }}
 
-  {{/* Re-stick the #rule_infractions sticky beneath the ping we just posted.
-       Its own `.*` trigger never fires on this bot message, so we nudge it. */}}
-  {{ execCC $infractionsSticky $infractionsChannel 1 (sdict "stickyChannel" $infractionsChannel) }}
+  {{/* Flag the post for staff follow-up, same emoji the advert commands use. */}}
+  {{ if $staffPending }}{{ addMessageReactions $data.channelID $data.msgID $staffPending }}{{ end }}
+
+  {{/* Re-stick the #rule_infractions sticky beneath the ping we just posted
+       (its own `.*` trigger never fires on this bot message), AND — by passing
+       the recheck params — hand the post off to start the :staffpending:
+       re-check chain, exactly like the advert commands do. The sticky spends
+       its own budget on the scheduleUniqueCC, so we stay within our one
+       execCC. The re-check now understands the reaction floor, so it will
+       auto-clear :staffpending: and add :staffapproved: once the post reaches
+       three reactions (or delete it at the 8h terminal stage if it never does). */}}
+  {{ execCC $infractionsSticky $infractionsChannel 1 (sdict
+    "stickyChannel"   $infractionsChannel
+    "recheckMsgID"    $data.msgID
+    "recheckChannel"  $data.channelID
+    "recheckType"     "quick"
+    "infractionMsgID" $pingID
+  ) }}
 {{ end }}

@@ -1,0 +1,92 @@
+GET-ROLES "DMs CLOSED" ENFORCEMENT — SETUP
+==========================================
+
+WHAT THIS IS
+------------
+A reaction-triggered command on the #get_roles status message. When a member
+sets themselves to "not looking | dms closed" (the :mailbox_closed: reaction)
+while they still have an advert posted, the bot DMs them a 30-minute warning.
+If their status is still "not looking" after 30 minutes, every advert of theirs
+that is still posted is deleted automatically.
+
+It does NOT assign roles — that stays on YAGPDB's native reaction roles. It only
+enforces the :mailbox_closed: case. :mailbox_open: ("looking | dms open") and
+:mailbox_with_no_mail: ("neutral | advert only") are ignored here; switching to
+either of them is exactly how a member keeps their advert(s).
+
+"Still has an advert" uses the same source of truth as the advert commands: the
+lastMsg_<channelID> database keys, each resolved with getMessage to confirm the
+post is still live.
+
+
+HOW IT'S BUILT (YAGPDB limits)
+------------------------------
+One command, two stages, decided by .ExecData:
+  • STAGE 1 runs on the reaction add. It checks the message/emoji/role/ads,
+    DMs the member, and makes its ONE allowed schedule call to queue the recheck.
+  • STAGE 2 is that queued call (scheduleUniqueCC, ~30 min later). It runs as a
+    fresh execution, re-reads the member's roles, and deletes live adverts if
+    they are still "not looking".
+The schedule key "rolegrace_<userID>" means one pending recheck per member.
+
+
+STEP 1 — CREATE THE COMMAND
+---------------------------
+1. YAGPDB dashboard → Custom Commands → New.
+2. Trigger type: Reaction.
+3. Restrict it to the #get_roles channel (Channels → only #get_roles).
+4. Paste the contents of get_roles_dms_closed.go.
+5. Save, then open it again and read the command ID from the page URL
+   (.../customcommands/commands/1234/ → 1234).
+
+
+STEP 2 — CONFIGURE IT
+---------------------
+At the top of the code, set:
+
+    {{ $watchMessageID := "0" }}  → the ID of the status message in #get_roles
+                                    that carries the mailbox reactions. Turn on
+                                    Developer Mode in Discord, right-click the
+                                    message → Copy Message ID.
+    {{ $notLookingRole := "0" }}  → role ID of "not looking | dms closed"
+                                    (Server Settings → Roles → right-click →
+                                    Copy Role ID, with Developer Mode on).
+    {{ $selfCC := 0 }}            → THIS command's own id (from Step 1).
+                                    REQUIRED — without it the 30-minute recheck
+                                    is never scheduled and nothing is deleted.
+    {{ $getRolesChannel := 0 }}   → #get_roles channel ID (optional, only makes
+                                    the DM's channel link clickable).
+    {{ $mailboxClosed := "📪" }}  → the :mailbox_closed: emoji. If your status
+                                    message uses a different glyph or a custom
+                                    server emoji, replace this (custom emoji =
+                                    its name, no colons).
+
+Leave {{ $graceSeconds := 1800 }} unless you want a different grace window.
+
+
+STEP 3 — VERIFY
+---------------
+1. With a test account that has an advert live in an advert channel and is NOT
+   currently "not looking", react :mailbox_closed: on the status message.
+   → The test account should receive the 30-minute warning DM, and the advert
+     should still be up.
+2. Leave the status on "not looking". After ~30 minutes the advert(s) should be
+   deleted automatically.
+3. Repeat, but within the 30 minutes switch to :mailbox_open: or
+   :mailbox_with_no_mail:. → At the recheck nothing should be deleted.
+4. React :mailbox_closed: with an account that has NO live advert, or that was
+   already "not looking". → No DM, no scheduled deletion.
+
+To test faster, temporarily lower $graceSeconds (e.g. 60), verify, then set it
+back to 1800.
+
+
+NOTE ON ROLE TIMING
+-------------------
+STAGE 1's "did they already hold not-looking?" guard reads the member's roles
+from the reaction event, i.e. their roles at the instant they clicked — before
+native reaction roles finish assigning the new one. That is what lets it tell a
+fresh transition from a re-click. If you ever see warnings being suppressed for
+members who clearly just switched, confirm the native reaction-role for
+:mailbox_closed: isn't being applied to the snapshot before this command reads
+it (the live-advert check is the primary gate regardless).

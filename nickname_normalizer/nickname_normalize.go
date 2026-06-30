@@ -31,8 +31,6 @@
      =========================================================================== */}}
 
 {{ if .User.Bot }}{{ return }}{{ end }}
-{{/* Never try to rename the server owner — editNickname would just error. */}}
-{{ if eq (toString .User.ID) (toString .Guild.OwnerID) }}{{ return }}{{ end }}
 
 {{ $U := "ABCDEFGHIJKLMNOPQRSTUVWXYZ" }}
 {{ $L := "abcdefghijklmnopqrstuvwxyz" }}

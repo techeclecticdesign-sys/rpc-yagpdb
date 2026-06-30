@@ -1,11 +1,12 @@
 {{ $maxLength := 2100 }}
 {{ $lockoutHours := 96 }}
-{{ $infractionsChannel := 0 }}
+{{ $infractionsChannel := 641835326314381312 }}
 {{ $infractionsSticky := 0 }}
-{{ $botSpam := 0 }}
+{{ $botSpam := 406618336508510209 }}
 {{ $infrWindowSecs := 15552000 }}{{/* 180 days */}}
 {{ $advertBanSecs := 1209600 }}{{/* 14 days */}}
 {{ $staffPending := "staffpending:1442331141771366513" }}
+{{ $askTheStaff := 324571668569915393 }}
 {{ $banned := cslice
   "futa"
   "futanari"
@@ -29,7 +30,7 @@
     {{ sendDM (cembed
       "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because your advertising privileges are temporarily suspended after four or more infractions within six months. Here is the message that was not posted: ")
       "description" .Message.Content
-      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**Your advertising privileges will be restored on " (printf "<t:%d:F>" (toInt $ban.ExpiresAt.Unix)) ".\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions.**") "inline" false))
+      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**Your advertising privileges will be restored on " (printf "<t:%d:F>" (toInt $ban.ExpiresAt.Unix)) ".\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. If you have any further questions please feel free to ask on " (printf "<#%d>" $askTheStaff) ".**") "inline" false))
       "color" 14905344
       "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
       "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
@@ -44,7 +45,7 @@
   {{ sendDM (cembed
     "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because it exceeds the 2000 character limit for our long-form ad channels. Here is the message that was not posted: ")
     "description" .Message.Content
-    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**" "Please adjust your post to be at or under the max length of a non-Nitro post, which is 2,000 characters. Please note all advertisements in our group channels must be kept to one Discord post, but can include a link to a Google Doc with additional information.\n\nIf you want to keep your post in the current channel, please shorten it to 2000 characters or less. Keep in mind a lot of information may be given using the Post a Plot Tags.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions." "**") "inline" false))
+    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**" "Please adjust your post to be at or under the max length of a non-Nitro post, which is 2,000 characters. Please note all advertisements in our group channels must be kept to one Discord post, but can include a link to a Google Doc with additional information.\n\nIf you want to keep your post in the current channel, please shorten it to 2000 characters or less. Keep in mind a lot of information may be given using the Post a Plot Tags.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. If you have any further questions please feel free to ask on " (printf "<#%d>" $askTheStaff) "." "**") "inline" false))
     "color" 14905344
     "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
     "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
@@ -63,7 +64,7 @@
     {{ sendDM (cembed
       "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because you have posted an advertisement on this channel too recently. Here is the message that was not posted: ")
       "description" .Message.Content
-      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**You are free to wait and post again in " (humanizeDurationMinutes $remaining) ", once your post cooldown has expired. You can check your eligibility to repost in our 'Can I Post' channel.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions.**") "inline" false))
+      "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**You are free to wait and post again in " (humanizeDurationMinutes $remaining) ", once your post cooldown has expired. You can check your eligibility to repost in our 'Can I Post' channel.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. If you have any further questions please feel free to ask on " (printf "<#%d>" $askTheStaff) ".**") "inline" false))
       "color" 14905344
       "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
       "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
@@ -79,7 +80,7 @@
   {{ sendDM (cembed
     "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because you already have an advertisement on this channel. Here is the message that was not posted: ")
     "description" .Message.Content
-    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**You are free to delete your [old advert](" "https://discordapp.com/channels/" (.Message.GuildID) "/" (.Message.ChannelID) "/" ($lastMsgId) "). Once you have successfully posted a new advert your cooldown period will be restarted. You can check your eligibility to repost in our 'Can I Post' channel.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions.**") "inline" false))
+    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**You are free to delete your [old advert](" "https://discordapp.com/channels/" (.Message.GuildID) "/" (.Message.ChannelID) "/" ($lastMsgId) "). Once you have successfully posted a new advert your cooldown period will be restarted. You can check your eligibility to repost in our 'Can I Post' channel.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. If you have any further questions please feel free to ask on " (printf "<#%d>" $askTheStaff) ".**") "inline" false))
     "color" 14905344
     "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
     "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
@@ -150,7 +151,7 @@
     {{ end }}
   {{ end }}
   {{ if $dupChannel }}
-    {{ $issues = $issues.Append (printf "It looks identical to your ad in <#%s>. Adverts in different channels must be distinctly different from one another." $dupChannel) }}
+    {{ $issues = $issues.Append (printf "It looks identical to your ad in <#%s>. Cross-channel adverts must be distinctly different from each other and searching for different things. Please choose a channel for your advert." $dupChannel) }}
   {{ end }}
 {{ end }}
 

@@ -93,6 +93,19 @@ The cleaned name is written back with `editNickname` (which Discord applies on t
 member's next message); an unreadable, all-symbol nickname instead earns a one-per-6h
 DM asking for a readable name.
 
+### 📪 DMs-closed advert enforcement — [get_roles_dms_closed](get_roles_dms_closed/)
+
+A reaction command on the #get_roles status message. When a member switches
+themselves to **not looking | dms closed** (the `:mailbox_closed:` reaction)
+while they still have an advert live, the bot DMs them a **30-minute** warning;
+if their status is still *not looking* at the recheck, every advert of theirs
+that's still posted is deleted. Role assignment stays on native reaction roles —
+this only enforces the closed case, and switching to **neutral | advert only**
+or **looking | dms open** within the window is how a member keeps their ad(s).
+"Still has an advert" reuses the advert commands' `lastMsg_<channel>` records
+(resolved with `getMessage`), and the recheck is the command scheduling itself
+forward via `scheduleUniqueCC`.
+
 ### 🩹 Member intros — [member_intros_fix](member_intros_fix/)
 
 Validates posts in the member-introductions channel: enforces the character

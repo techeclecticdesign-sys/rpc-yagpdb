@@ -1,11 +1,12 @@
 {{ $maxLength := 105 }}
 {{ $lockoutHours := 96 }}
-{{ $infractionsChannel := 0 }}
+{{ $infractionsChannel := 641835326314381312 }}
 {{ $infractionsSticky := 0 }}
 {{ $botSpam := 0 }}
 {{ $infrWindowSecs := 15552000 }}{{/* 180 days */}}
 {{ $advertBanSecs := 1209600 }}{{/* 14 days */}}
 {{ $staffPending := "staffpending:1442331141771366513" }}
+{{ $askTheStaff := 324571668569915393 }}
 {{ $banned := cslice
   "futa"
   "futanari"
@@ -25,7 +26,7 @@
 {{ $icon := "https://i.ibb.co/mt5sNFb/Main.png" }}
 {{ $author := (sdict "name" "Roleplay Central Database" "icon_url" $icon) }}
 {{ $thumb := (sdict "url" $icon) }}
-{{ $footer := (joinStr "" "For additional information about posting advertisements, please see our " $advert_rule " channel. Please feel free to reach out to a member of the RPC moderation team if you have any further questions.") }}
+{{ $footer := (joinStr "" "For additional information about posting advertisements, please see our " $advert_rule " channel. If you have any further questions please feel free to ask on " (printf "<#%d>" $askTheStaff) ".") }}
 
 {{- /* ===== 0. ADVERT BAN ===== */ -}}
 {{ $ban := dbGet .User.ID "advertBan" }}
@@ -170,7 +171,7 @@
     {{ end }}
   {{ end }}
   {{ if $dupChannel }}
-    {{ $issues = $issues.Append (printf "It looks identical to your ad in <#%s>. Adverts in different channels must be distinctly different from one another." $dupChannel) }}
+    {{ $issues = $issues.Append (printf "It looks identical to your ad in <#%s>. Cross-channel adverts must be distinctly different from each other and searching for different things. Please choose a channel for your advert." $dupChannel) }}
   {{ end }}
 {{ end }}
 

@@ -47,6 +47,26 @@
   "futanaris"
 }}
 
+{{/* ▼▼ Reaction floor (quick only). MUST stay identical to reaction_check —
+       same emoji NAMES (case-sensitive, no colons) and same minimum, or the
+       recheck and the reaction ping will disagree about what "clean" means.
+       A quick post with fewer than $minReactions unique approved reactions is
+       treated as dirty (same as a content problem: cleared when satisfied,
+       deleted at the 8h terminal stage). ▼▼ */}}
+{{ $minReactions := 3 }}
+{{ $approved := cslice
+  "❤️"
+  "18_minor" "18_plus" "21_plus" "25_plus"
+  "sfw" "platonic" "nsfw" "romantic" "gm_style"
+  "pairing_mxf" "pairing_mxm" "pairing_fxf" "pairing_MxO" "pairing_FxO" "pairing_OxO" "pairing_axa"
+  "nonbinary_friendly" "trans_friendly" "nonhuman_friendly"
+  "length_oneliner" "length_1para" "length_twotofive" "length_fivetoten" "length_10plus"
+  "genre_crime" "genre_cyberpunk" "genre_fantasy" "genre_historical" "genre_horror"
+  "genre_modern" "genre_postapoc" "genre_sciencefiction" "genre_sliceoflife" "genre_supernatural"
+  "speed_rapidfire" "speed_daily" "speed_weekly" "speed_monthly"
+  "original_chars" "canon_chars"
+}}
+
 {{- /* ===== fetch the post; if it's gone, so is its reaction ===== */ -}}
 {{ $msg := getMessage $d.channelID $d.msgID }}
 {{ if not $msg }}{{ return }}{{ end }}
@@ -92,6 +112,18 @@
   {{ $escaped := cslice }}
   {{ range $banned }}{{ $escaped = $escaped.Append (reQuoteMeta .) }}{{ end }}
   {{ if reFind (printf "(?i)\\b(?:%s)\\b" (joinStr "|" $escaped)) $msg.Content }}{{ $dirty = true }}{{ end }}
+{{ end }}
+
+{{/* reaction floor — quick only. Same rule reaction_check enforces, so the
+     :staffpending: flag only clears once the post passes the FULL ruleset
+     (clean content AND enough approved reactions), not just content. No API
+     calls — $msg.Reactions is already on the message we fetched. */}}
+{{ if and (not $dirty) (eq $type "quick") (gt $minReactions 0) }}
+  {{ $rc := 0 }}
+  {{ range $msg.Reactions }}
+    {{ if in $approved .Emoji.Name }}{{ $rc = add $rc 1 }}{{ end }}
+  {{ end }}
+  {{ if lt $rc $minReactions }}{{ $dirty = true }}{{ end }}
 {{ end }}
 
 {{/* cross-channel duplicate — all types. Gated behind (not $dirty) because it
