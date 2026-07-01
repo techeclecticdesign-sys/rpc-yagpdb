@@ -10,6 +10,12 @@ Each folder holds the Go template that gets pasted into the YAGPDB dashboard, a
 `setup.txt` with install instructions, and screenshots of the dashboard
 settings.
 
+The three advert commands ship in two forms: the readable original
+(`quick_advert.go`) and a minified single-line version (`quick_advert.min.go`).
+**The minified file is the one you paste into YAGPDB** — it's the same logic with
+the comments and whitespace stripped so it fits the dashboard's code limit. Edit
+the readable `.go`, then re-minify (see [Making changes](#-making-changes)).
+
 ## ✨ Features
 
 ### 📢 Advert enforcement — [consolidated_advert_commands](consolidated_advert_commands/)
@@ -22,7 +28,7 @@ running the whole check pipeline on every post:
   channel.
 - **Advisory rules — keep the post + one ping in #rule_infractions:** links
   (quick), images/attachments (quick & 1x1), Discord headers (quick & 1x1; group
-  allows a single short header line), banned words (shown in ||spoilers||), and
+  allows a single short header line), banned words, and
   the same advert copy-pasted across more than one channel.
 
 Folding every check into a single per-channel command keeps each advert channel
@@ -32,7 +38,15 @@ under YAGPDB's cap of 3 message-triggered commands per post.
 
 Quick adverts must carry at least three approved roleplay reaction tags. A few
 minutes after a post, `reaction_check` re-reads it and, if it's short on tags,
-pings the author in #rule_infractions to add them.
+pings the author in #rule_infractions to add them. `reaction_check` is a
+trigger-type-**None** command (it never fires on its own), so it costs no
+message-trigger slot.
+
+The +5-minute timer that arms it is folded into the **quick-channel sticky**
+([quick_sticky](quick_sticky/)) rather than a standalone "Post Timer" command.
+That drops the quick channels from 3 message-triggered commands (advert cmd +
+sticky + timer) to **2** (advert cmd + sticky), so every advert channel type now
+sits at 2 of YAGPDB's 3 slots.
 
 ### 🧹 Advert reaction cleanup — [autoremove_reactions](autoremove_reactions/)
 
@@ -111,3 +125,111 @@ forward via `scheduleUniqueCC`.
 Validates posts in the member-introductions channel: enforces the character
 limit and allows only one intro per member, DMing the author and removing the
 post when either rule is broken.
+
+## 🧭 Design
+
+![Advert-post execution flow](image.png)
+
+### Two of the three regex slots
+
+YAGPDB (free tier) runs at most **3 message-triggered — "regex" — custom
+commands per message**; anything past the cap is silently dropped. That cap is
+the whole reason the advert checks were consolidated. Each advert channel now
+spends just **2 of its 3 slots**:
+
+1. the **merged advert command** (all the length / cooldown / duplicate /
+   advisory checks in one), and
+2. the channel's own **sticky** (which also arms the quick reaction timer).
+
+That leaves **one slot of headroom**. Everything that happens *after* a post —
+the +5-minute reaction check and the infraction re-check chain — runs on
+trigger-type-**None** commands fired by `scheduleUniqueCC`, which don't count
+against the 3. So no matter how much follow-up logic we add, an advert channel
+never uses more than 2 of its message-trigger slots.
+
+### How to read the flowchart
+
+The diagram above traces one advert post from the top. In plain terms:
+
+- **Someone posts in an advert channel.** Two things fire on that post — the
+  advert command (slot 1) and the sticky (slot 2).
+- **The sticky** just re-pins the channel's rules reminder to the bottom so it
+  never scrolls away. Done.
+- **The advert command checks the hard rules first:** is the post too long, is
+  the author still on cooldown, do they already have an ad in this channel, or
+  are they advert-banned? If **any** hard rule fails, the bot **DMs the author
+  the reason and deletes the post** — end of story.
+- **If it passes the hard rules, the post stays** and the bot records it. Now it
+  looks for **advisory** problems: links, images, headers, banned words, or the
+  same ad copy-pasted across channels. If there are **none**, nothing else
+  happens — the post is fine. If there **is** one, the bot posts **one ping in
+  #rule_infractions**, adds a ⏳ `:staffpending:` reaction to the ad, and counts
+  the infraction (3rd = a warning line, 4th = a 14-day advert ban).
+- **Quick channels get one extra check** (armed by the sticky, so it's free):
+  about **5 minutes** later the bot re-reads the post and, if it has fewer than
+  **3 approved reaction tags**, pings the author to add them.
+- **Every ping kicks off a re-check chain.** Ten minutes later the bot looks at
+  the post again. If the author **fixed it**, the bot clears the `:staffpending:`
+  flag and marks the ping approved. If the **post is gone**, it stops. If it's
+  **still broken**, it checks again at +35 min, +45 min, and +390 min — and if
+  it's *still* broken at the **8-hour** mark, the ad is **deleted**.
+
+## 🔧 Making changes
+
+You edit the readable original (e.g. `1x1_advert.go`), then **minify it and
+replace the existing minified file** (`1x1_advert.min.go`) — the minified version
+is what actually gets pasted into YAGPDB.
+
+Minifying a Go template by hand is error-prone, so use one of:
+
+- **A minifier that understands Go template (`text/template`) syntax** — a plain
+  JS/HTML minifier will mangle `{{ ... }}` blocks and break the command.
+- **AI.** If you go this route, use a **premium model on high thinking** — Claude
+  Opus or better. Minification has to be *logically exact*, so this is not a job
+  for a small/fast model.
+
+If using AI, this two-prompt sequence is highly accurate:
+
+> In the same fashion as the advert commands are minified, I want to take the
+> current code of the originals (e.g. `1x1_advert.go`) and minify them, replacing
+> the existing minified files, being careful to minify accurately and be
+> logically exact.
+
+then, to verify:
+
+> Compare the minified versions of the advert commands with the originals and
+> ensure they are logically consistent.
+
+Running both is belt-and-suspenders — the second (verification) pass is arguably
+overkill, but it's cheap insurance that the minified command behaves identically
+to the original.
+
+## 🗑️ Uninstalling
+
+To revert the server to how it worked before this project, go to the YAGPDB
+dashboard → **Custom Commands** and:
+
+1. **Disable (or delete) every command this project added** — one per feature
+   above:
+   - the three consolidated advert commands (`quick_advert`, `1x1_advert`,
+     `group_advert`)
+   - `reaction_check` and the quick-channel sticky's reaction timer
+     ([quick_sticky](quick_sticky/))
+   - `autoremove_reactions`
+   - the `#rule_infractions` sticky's infraction-counting / re-stick additions
+     ([infractions_sticky](infractions_sticky/))
+   - `/infractions` ([infraction_admin](infraction_admin/))
+   - `infraction_recheck`
+   - the nickname normalizer (and `nametest`)
+   - `get_roles_dms_closed`
+   - the member-intros fix
+
+2. **Re-enable the three original advert-moderator commands.** These are the ones
+   the consolidated commands replaced, and they sit at the **top of the command
+   list** (lowest command IDs):
+   - **Quick Channels**
+   - **Normal / Long-Form Channels**
+   - **Groups**
+
+Once those three are back on and this project's commands are off, advert
+enforcement behaves exactly as it did originally.
