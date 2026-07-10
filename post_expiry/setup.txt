@@ -1,0 +1,171 @@
+POST EXPIRY — SETUP
+===================
+
+WHAT THIS DOES
+--------------
+Automatically deletes old posts:
+  • Advert channels + #member_intros ...... deleted 60 days after posting
+  • Group advert channels .................. deleted 120 days after posting
+  • #rule_infractions ..................... deleted 180 days after posting
+
+Fully automatic once installed — no staff action, ever. Two interval commands
+do the sweeping; a small addition to the #rule_infractions sticky records what
+that channel needs deleted.
+
+
+HOW IT WORKS (so future-you trusts it)
+--------------------------------------
+Discord has no native message expiry, and YAGPDB can neither delay a deletion
+more than 24h nor read a channel's history from a template. So expiry has to
+come from records of what was posted:
+
+• ADVERTS + INTROS need no new records at all. Every accepted advert/intro is
+  already stored per user as `lastMsg_<channelID>` (the post's ID) by the
+  advert commands and the Member Intros command — that's the same record the
+  duplicate check and Can-I-Post read. The sweeper (advert_expiry.go) walks
+  those records with dbTopEntries behind a rotating cursor, reads each post's
+  age from its message-ID snowflake (IDs encode their creation time), and for
+  anything past 60 days deletes the post and clears the record. Stale
+  `lastMsgTime_*` cooldown records past the TTL are cleared too, purely to
+  keep the DB tidy. The advert/intro commands are NOT modified.
+
+  BONUS: because the records already exist, the CURRENT backlog of old
+  adverts/intros drains automatically — no manual purge needed. Capacity is
+  ~6 deletions per hourly run (~144/day), so even a big backlog clears in a
+  few days.
+
+• #RULE_INFRACTIONS has no unique per-user index (one member can have many
+  pings), and one DB entry per ping would bloat the entry budget. Instead the
+  infractions sticky — which runs after EVERY message in that channel (`.*`
+  for humans, execCC for bot pings) — appends each message ID to a 30-day
+  bucket entry: `infrLedger_<unixTime/2592000>`. Only ~7 buckets exist at any
+  time (6 months + the live one) no matter the volume, and each is far below
+  the 100 kB value cap. The sweeper (infraction_expiry.go) checks the bucket
+  straddling the 180-day line plus the three before it, deletes IDs past the
+  cutoff (age from the snowflake again), and rewrites/removes the bucket.
+  The sticky itself is never ledgered — it deletes and re-posts itself.
+
+Everything deletes by exact recorded ID — the sweepers never pattern-match
+channel contents, so pinned posts, rules messages, and stickies are untouchable
+by construction.
+
+All of it fits free-tier limits: each sweep run stays within 10 regular DB ops
++ 2 multi-entry ops, interval triggers cost no message-trigger slots, and the
+sticky's worst path rises from 6 to 8 of its 10 DB ops.
+
+
+BEFORE YOU START
+----------------
+1. Developer Mode ON (User Settings → Developer → Developer Mode).
+2. Copy these channel IDs (right-click channel → Copy Channel ID):
+   • #rule_infractions
+   • #bot_spam (or any quiet channel — interval commands must be assigned a
+     channel to "run in", even though these post nothing)
+
+
+STEP 1 — ADVERT/INTRO SWEEPER
+-----------------------------
+1. Dashboard → Custom Commands → New Command, name it "Advert Expiry Sweep".
+2. Trigger type: Minute Interval, Interval: 60.
+3. Channel: #bot_spam (the "run in" channel; nothing is posted there).
+4. Paste ALL of advert_expiry.go as the response.
+5. Config at the top — the defaults are correct for RPC EXCEPT $groupChannels,
+   which you must fill in (see below):
+     $ttlSecs          5184000 (60 days) — default for quick / 1x1 / intros
+     $groupTtlSecs     10368000 (120 days / 4 months) — group advert channels
+     $groupChannels    REQUIRED for the 4-month rule to do anything. List every
+                       group advert channel ID here as strings — these are the
+                       same channels you set as the Groups command's channel
+                       restrictions. Two channels looks like:
+                         (cslice "641835326314381312" "504322252611780609")
+                       Left empty, every channel just uses the 60-day $ttlSecs.
+     $excludeChannels  empty — only fill this if some future command starts
+                       writing lastMsg_ records in a channel that must NOT
+                       auto-expire, same string-list format as $groupChannels.
+6. Save.
+
+That's it for adverts and intros. Expect the existing backlog to disappear
+over the next few days, oldest-first-ish (scan order isn't strictly oldest,
+but everything past 60 days goes).
+
+
+STEP 2 — INFRACTIONS SWEEPER
+----------------------------
+1. New Command, name it "Infractions Expiry Sweep".
+2. Trigger type: Minute Interval, Interval: 360 (every 6 hours).
+3. Channel: #bot_spam.
+4. Paste ALL of infraction_expiry.go as the response.
+5. Config at the top:
+     $infractionsChannel   your #rule_infractions channel ID
+     $ttlSecs              15552000 (180 days) — matches the rolling
+                           infraction-count window; leave it
+     $maxDeletes           12 per run (48/day) — raise only if the channel is
+                           far busier than ~40 pings/day
+6. Save.
+
+
+STEP 3 — UPDATE THE #RULE_INFRACTIONS STICKY
+--------------------------------------------
+The sticky records the channel's message IDs into the ledger buckets that
+STEP 2 sweeps. Open your sticky command and re-paste the current
+infractions_sticky/infractions_sticky.go over it (keep YOUR $message line and
+config values: $recheckCC, $botSpam). If you maintain your own sticky text
+instead, copy the `$ledger` additions across — see "EXPIRY LEDGER" in
+infractions_sticky/setup.txt for the exact list of lines.
+
+No changes are needed to the advert commands, Member Intros, reaction_check,
+or infraction_recheck.
+
+
+ONE-TIME BACKFILL — OLD #RULE_INFRACTIONS HISTORY
+-------------------------------------------------
+Messages posted in #rule_infractions BEFORE the ledger goes live were never
+recorded, so the sweeper can't see them. One-time options:
+
+  a) Manually clear the channel history older than 6 months (once), or
+  b) If the channel's history has no long-term value, "Clone Channel" in
+     Discord, point the channel IDs in the commands at the clone, and delete
+     the original — instant clean slate, or
+  c) Leave them — everything from install day onward expires on schedule;
+     the pre-install history just stays put.
+
+(Adverts/intros need NO backfill — see above.)
+
+
+HOW TO CHECK IT'S WORKING
+-------------------------
+• After the first few hourly runs: adverts older than 60 days start vanishing,
+  and each removal also clears that member's lastMsg_/lastMsgTime_ records
+  (visible in Dashboard → Database).
+• In the Database page, search "infrLedger" — you should see one bucket entry
+  growing as pings land, and after ~6 months a steady ~7 buckets.
+• Interval commands show their last-run time on the command page. If a run
+  errors, the dashboard's command error log says why.
+
+
+TUNING / LIMITS NOTES
+---------------------
+• All budgets are free-tier: 10 db_interactions per execution. advert_expiry.go
+  spends 4 of those on overhead — the cursor dbGet + cursor dbSet + BOTH
+  dbTopEntries pages (dbTopEntries counts against db_interactions, not just the
+  separate 2-per-run db_multiple counter) — leaving $opBudget = 6 for deletions.
+  Do NOT raise $opBudget past 6 on free tier: the run will error mid-loop with
+  "too many calls to dbDel" and the cursor won't advance. If the server ever
+  gets YAGPDB premium (50 db_interactions), 46 are free after overhead, so
+  $opBudget can go to ~40; likewise raise $maxDeletes in infraction_expiry.go.
+• Deletions use a 5-second deleteMessage delay on purpose: delayed deletions
+  go through the scheduled system, so an already-deleted message can't error
+  the run mid-loop.
+• If the bot or the sweepers are ever disabled for more than ~2 months,
+  infraction buckets older than the sweeper's 4-bucket window could linger —
+  search "infrLedger" in the Database page and delete stragglers by hand
+  (adverts self-heal; the cursor scan covers everything).
+
+
+UNINSTALLING
+------------
+1. Delete/disable both interval commands.
+2. (Optional) Re-paste the pre-ledger sticky, or remove the `$ledger` lines.
+3. (Optional) Database page → delete `advertExpiryCursor` and any `infrLedger_`
+   entries. lastMsg_/lastMsgTime_ records belong to the advert commands and
+   stay either way.

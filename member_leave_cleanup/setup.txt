@@ -1,0 +1,86 @@
+MEMBER LEAVE CLEANUP — SETUP
+============================
+
+WHAT THIS DOES
+--------------
+When a member leaves the server, the bot:
+  1. Deletes every post it has on record for that person — their member intro
+     and each advertisement (they're limited to one per channel, and each is
+     stored in the database as lastMsg_<channelID>).
+  2. Wipes ALL of that member's stored database rows (infraction history,
+     advert ban, cooldown timestamps, dedup flags) so no stale data is left.
+
+It only ever touches the LEAVING member's own posts and rows.
+
+
+HOW IT'S BUILT (one part)
+-------------------------
+YAGPDB has no "member leaves" custom-command trigger, so the server LEAVE
+MESSAGE is the hook. That leave message runs the full custom-command template
+function set (per YAGPDB docs, "custom command templates are supported for usage
+in all the notification feeds"), so it can delete messages and edit the database
+directly. The whole thing is one block — no separate command, no interval, no
+execCC.
+
+  • guestbook_leave_message.go — the entire feature; goes in the leave message.
+
+
+STEP 1 — INSTALL THE LEAVE MESSAGE
+----------------------------------
+1. YAGPDB dashboard → Core / General → General settings.
+2. Find the LEAVE MESSAGE field.
+3. Open guestbook_leave_message.go and copy its contents into that field.
+     • If you already post a farewell in the guestbook, keep your text and put
+       it BELOW the pasted block — the pasted block prints nothing.
+4. Turn ON "Leave message" (the enable toggle in that section).
+5. Set the leave message CHANNEL to the guestbook. YAGPDB only runs the leave
+   template when a channel is set, so this is required even with no farewell.
+6. Save.
+
+That's it — there is nothing to fill in inside the code.
+
+
+HOW TO TEST
+-----------
+The cleanup logic (dbGetPattern → deleteMessage → dbDelMultiple) behaves the
+same in a Command custom command as in the leave message, so you can validate
+it fully on your own account without an alt:
+
+  1. Create a temporary Command custom command (Trigger: Command, name e.g.
+     testcleanup). Paste this into it:
+
+        {{ range (dbGetPattern .User.ID "lastMsg%" 100 0) }}
+          {{ $parts := split .Key "_" }}
+          {{ if eq (index $parts 0) "lastMsg" }}
+            {{ deleteMessage (index $parts 1) .Value 0 }}
+          {{ end }}
+        {{ end }}
+        {{ $_ := dbDelMultiple (sdict "userID" .User.ID "pattern" "%") 100 0 }}
+        Done — deleted your recorded posts and wiped your rows.
+
+  2. With your normal account, post a throwaway member intro AND/OR a throwaway
+     advert the normal way, so the intro/advert command records them.
+  3. Run your test command (e.g. -testcleanup) in any channel the bot reads.
+  4. Confirm: the throwaway intro/advert messages are now DELETED from their
+     channels, and the infractions view command on your own ID reads 0.
+  5. Delete the temporary test command.
+
+The leave message uses this exact logic on .User.ID, so if the test deletes the
+posts, the real leave will too. (If you also want an end-to-end check of the
+leave message firing, have ONE real willing member — never a second account —
+leave once; they can rejoin afterward.)
+
+
+NOTES
+-----
+• Rejoin behavior: a member who leaves comes back with a clean slate — no
+  carried-over infractions, no advert ban, no cooldown, and their old posts are
+  gone. That's the intended trade-off. (To KEEP infraction history and deter
+  ban-evasion, remove step 2 — the dbDelMultiple line — so it only deletes
+  posts.)
+• Kick/ban also count as "leaving," so their posts and rows are cleared too.
+• Posts the member already deleted themselves are skipped automatically
+  (deleteMessage on a dead ID just does nothing).
+• Discord/YAGPDB caps how many API calls one template run may make. With one
+  post per channel across the intro + advert channels that's only a handful of
+  deleteMessage calls per leave, well within the limit.

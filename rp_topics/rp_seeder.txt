@@ -1,0 +1,64 @@
+{{/* RP topics seeder — run ONCE to load the 54 roleplay questions into the
+     "rpquestions" DB entry (owner 0). Unlike the generic topic bot's chunked
+     seeders this OVERWRITES the key in one shot, so it's safe to re-run: it
+     always leaves exactly this list, never duplicates. All 54 fit in one
+     command well under the 10,000-char cap (~4 kB). Delete this command after
+     seeding — the data stays in the DB. */}}
+{{ $slice := cslice
+  `Where do you pull most of your inspiration for roleplaying?`
+  `How do you like to store your OC information?`
+  `Do you prefer writing protagonists, antagonists, or characters in the middle?`
+  `What time of day do you RP the most?`
+  `How many open threads/RPs can you handle at once?`
+  `What do you like to do when you're facing writer's block?`
+  `Does your style lean more poetic or prosaic?`
+  `Are there any consistent motifs associated with your OC?`
+  `How do you ensure that your character dialogue sounds realistic?`
+  `Do you like to write from a particular lens, e.g. psychological, historical?`
+  `What is a piece of media (music, art, film, etc) that has influenced your writing?`
+  `What author do you consider most influential to your writing style, and why?`
+  `Where do you like to find face claims for your OCs?`
+  `Do you like to listen to music while you write, what genre(s)?`
+  `How do you like to collaborate with your RP partner(s)?`
+  `Do you the type to jump right into a plot, or do you like to plan beforehand?`
+  `What is one adjective you'd use to describe yourself as a roleplayer?`
+  `Do you love OOC chatting, or prefer to keep things strictly story?`
+  `Are you very picky about face claims, or don't care at all? Somewhere in between?`
+  `Besides role playing, do you enjoy personal writing, such as journaling or fanfiction?`
+  `Do you appreciate constructive criticism from your partners?`
+  `What's a genre you've never written, but always wanted to try?`
+  `What's one writing habit you've developed over the years?`
+  `What's something about your writing that has changed over time?`
+  `What's an OC trope you'll never get tired of?`
+  `Have you ever created an OC because of a dream?`
+  `What's an unusual source of inspiration you've used?`
+  `What's a piece of RP advice that's stuck with you?`
+  `What's one line you've written that you're especially proud of?`
+  `Do you build your OCs from a personality first, or an aesthetic/vibe first?`
+  `What's the oldest OC you still actively write?`
+  `What's your favorite trope of all time?`
+  `What's the hardest kind of scene for you to write?`
+  `How do you handle writing accents or dialects in dialogue? Examples welcome!`
+  `What's a writing habit or crutch word you're trying to break?`
+  `What got you into roleplaying in the first place, and how long ago?`
+  `Cringe confession time: what was your very first OC like?`
+  `If your OC met you, what would they think?`
+  `What makes you instantly excited to plot with someone?`
+  `What's a green flag you look for in an RP partner?`
+  `How do you feel about time skips?`
+  `Do you like plot twists sprung on you mid-thread, or do you want a heads up OOC?`
+  `How much worldbuilding do you need before you feel comfortable starting?`
+  `What's a setting you think is underused in RP?`
+  `Do you keep maps, timelines, or lore docs for your rps?`
+  `What's the longest-running RP you've ever had?`
+  `If you could RP with any published author, who would it be?`
+  `Do you reread your old threads? Fondly or through your fingers?`
+  `What snack or drink is your writing fuel?`
+  `What's a compliment about your writing that stuck with you?`
+  `Sun, rain, or thunderstorm: which weather makes you want to write?`
+  `Your OC is suddenly in a coffee shop AU. What do they order?`
+  `Which of your OCs would survive a horror movie, and which one dies first?`
+  `If your OC had a theme song, what would it be?`
+}}
+{{ dbSet 0 "rpquestions" $slice }}
+Loaded RP topics. Total: {{ len $slice }}

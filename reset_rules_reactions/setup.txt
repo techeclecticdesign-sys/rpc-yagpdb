@@ -1,0 +1,72 @@
+RESET RULES-ACCEPT REACTIONS — SETUP
+====================================
+
+WHAT THIS IS
+------------
+A staff-run command that cleans up the #server_rules accept message. It clears
+every :rpc: reaction on that message (all the members' reactions plus the bot's)
+and immediately re-adds the bot's own reaction. End state: the only reaction left
+is Jarvis', so the native reaction-role keeps working and members can still click
+to accept.
+
+It does NOT remove roles. Members who already accepted keep their role — a bulk
+reaction clear fires a REMOVE_EMOJI event, which YAGPDB's role system ignores
+(it only acts on individual reaction add/remove). This is the manual equivalent
+of the native `-rolemenu resetreactions` command, kept as a custom command so it
+runs on demand regardless of how the accept reaction is set up.
+
+
+HOW IT'S BUILT
+--------------
+One Command-triggered custom command, two template calls:
+  1. deleteAllMessageReactions — clears the :rpc: reactions on the message.
+  2. addMessageReactions       — re-adds the bot's own :rpc: reaction.
+All three inputs (channel, message, emoji) are hardcoded in the CONFIG block at
+the top of reset_rules_reactions.go, so running it takes no arguments.
+
+
+STEP 1 — CREATE THE COMMAND
+---------------------------
+1. YAGPDB dashboard → Custom Commands → New.
+2. Trigger type: Command.
+3. Trigger (command name): resetrulesreactions   (pick whatever name you like).
+4. Paste the contents of reset_rules_reactions.go.
+5. Save.
+
+
+STEP 2 — RESTRICT TO STAFF  (important)
+---------------------------------------
+On the command's dashboard page, limit who can run it so members can't wipe the
+reactions:
+  • Require roles → add your staff/admin role(s), OR
+  • restrict it to a staff-only channel under the Channels setting.
+This command is safe for roles, but it should still only be in staff hands.
+
+
+STEP 3 — CONFIGURE  (already set to production values)
+------------------------------------------------------
+The CONFIG block at the top of the code is already filled in for the live server:
+
+    {{ $channelID := "367000571908980738" }}   → #server_rules channel
+    {{ $messageID := "1385675552601411605" }}   → the rules-accept message
+    {{ $emoji := "rpc:658510846779195423" }}     → the :rpc: accept emoji (NAME:ID)
+
+Only change these if the rules message is reposted (new message ID) or the emoji
+is re-uploaded (new emoji ID). The emoji must stay in NAME:ID form — no colons,
+no <> brackets. Confirm the ID any time by sending  \:rpc:  in Discord.
+
+
+STEP 4 — REQUIREMENTS
+---------------------
+Jarvis needs Manage Messages in #server_rules (to clear reactions). It already
+has this on the live server; if deleteAllMessageReactions errors, check that
+permission first.
+
+
+STEP 5 — USE / VERIFY
+---------------------
+Run the command (e.g.  -resetrulesreactions  ) in a staff channel.
+  → Every :rpc: reaction on the rules message disappears, then Jarvis' single
+    reaction reappears a moment later. Reaction count returns to 1.
+  → Members who had already accepted still have the role (spot-check one).
+  → A member with no role can still click :rpc: and receive the role.

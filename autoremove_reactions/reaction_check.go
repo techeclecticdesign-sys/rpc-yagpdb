@@ -39,7 +39,7 @@
   "genre_crime" "genre_cyberpunk" "genre_fantasy" "genre_historical" "genre_horror"
   "genre_modern" "genre_postapoc" "genre_sciencefiction" "genre_sliceoflife" "genre_supernatural"
   "speed_rapidfire" "speed_daily" "speed_weekly" "speed_monthly"
-  "original_chars" "canon_chars"
+  "original_chars" "canon_chars" "any_genre"
 }}
 
 {{/* Re-fetch the post so we read its CURRENT reactions. If it was deleted, stop. */}}

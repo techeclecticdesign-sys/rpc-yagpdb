@@ -1,0 +1,3 @@
+{{/* Random question picker — reads the single DB entry seeded by the chunks. */}}
+{{ $q := (dbGet 0 "questions").Value }}
+{{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No questions loaded yet.{{ end }}

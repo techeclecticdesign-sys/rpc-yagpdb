@@ -1,0 +1,5 @@
+{{/* RP topic picker — the /rptopic command. Reads the single DB entry seeded
+     by rp_seeder.txt (key "rpquestions", owner 0) — SEPARATE from the generic
+     "topic" bot's "questions" key, so the two lists never mix. One DB call. */}}
+{{ $q := (dbGet 0 "rpquestions").Value }}
+{{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No RP topics loaded yet.{{ end }}

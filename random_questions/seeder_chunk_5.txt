@@ -1,0 +1,51 @@
+{{ $slice := cslice }}
+{{ $existing := (dbGet 0 "questions") }}
+{{ if $existing }}{{ $slice = $existing.Value }}{{ end }}
+{{ $slice = $slice.AppendSlice (cslice
+  `What's the best and worst thing about the country you are from?`
+  `If you were in charge renaming things so that their names would be more accurate, what names?`
+  `What's better broken than whole?`
+  `What values are most important to you?`
+  `What's the best sandwich you've ever had?`
+  `What's the worst thing you ate from a fast food restaurant?`
+  `What's something that I don't know?`
+  `What profession doesn't get enough credit or respect?`
+  `What memory of yours feels real but is most likely false?`
+  `What's your "and then it got worse" story?`
+  `What was the most amazing physical feat you've managed to pull off?`
+  `If you were hired to show tourists what life is really like where you live, what would you show?`
+  `What would be the most unsettling thing to keep occasionally finding around your house?`
+  `What nicknames do you have for people in your life?`
+  `How much do you plan / prepare for the future?`
+  `What do you hate most and love most about your car?`
+  `What weird potato chip flavor that doesn't exist would you like to try?`
+  `What's the silliest thing you've convinced someone of?`
+  `How much do you think names affect the outcomes of people's lives?`
+  `What product or service is way more expensive than it needs to be?`
+  `What was the last situation where some weird stuff went down and everyone acted like normal?`
+  `What did you eat so much of that now you hate it?`
+  `What are some of the dumbest lyrics you've heard in a song?`
+  `Where's the line between soup and cereal?`
+  `What word do you always mispronounce?`
+  `What do you think you do better than 90% of people?`
+  `What would be the worst food to be liquefied and drunk through a straw?`
+  `What's the weirdest thing about modern life that people just accept as normal?`
+  `How much of your body would you cybernetically enhance if you could?`
+  `If you wanted to slowly drive a roommate insane using only notes, what kind would you leave?`
+  `What's the clumsiest thing you've done?`
+  `Think of a brand, now what would an honest slogan for that brand be?`
+  `What's something common from your childhood that will seem strange to future generations?`
+  `What's the most amazing place in nature you've been?`
+  `What's quickly becoming obsolete?`
+  `Where is the most uncomfortable place you have ever slept?`
+  `What's the most annoying animal you've encountered?`
+  `What's your best example of correlation not equaling causation?`
+  `In what situations, do you wish you could throw down a smoke bomb and disappear?`
+  `When was the last time you were hopelessly lost?`
+  `What songs do you feel compelled to sing along with when you hear them, even if imperfect?`
+  `What product do you wish a company would make a "smart" version of?`
+  `What two films would you like to combine into one?`
+  `What feature do you wish discord had?`
+) }}
+{{ dbSet 0 "questions" $slice }}
+Loaded chunk. Total now: {{ len $slice }}

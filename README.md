@@ -64,24 +64,33 @@ never fires on the bot's own messages, so the advert commands re-pin it via
 ### 🚩 Repeat-infraction tracking — [infractions_sticky](infractions_sticky/)
 
 Counts each member's infractions over a rolling **6-month** window — stored as a
-single per-user list of timestamps (`infractionDates`), pruned on every write, so
-there's one DB row per person rather than one per infraction. On the **3rd**
-infraction the notice gains a warning line; on the **4th** the member is suspended
-from posting adverts for **14 days** (a self-expiring `advertBan` flag the advert
-commands check before accepting a post), a heads-up goes to bot-spam so staff know
-a ban landed, and the infraction history is wiped so the slate is clean once the
-ban is served. Bot-issued pings are counted inline by the advert commands and
-`reaction_check`; manually typed staff infractions are counted by the sticky's
-`.*` branch — disjoint message sets, so nothing is double-counted.
+single per-user list of records (`infractionLog`; each record holds the time, a
+comma-joined reason such as "headers, banned word", and the offending post's
+channel/message id for a jump link), pruned on every write, so there's one DB row
+per person rather than one per infraction. On the **3rd** infraction the notice
+gains a warning line; on the **4th** — and **every infraction after** — the member
+is suspended from posting adverts for **14 days** (a self-expiring `advertBan`
+flag the advert commands check before accepting a post) and a heads-up goes to
+bot-spam. History is **not** wiped: entries only drop once they age past the
+6-month window, so a member who slips again after a ban expires is immediately
+re-muted for another 14 days. Multiple problems on one post collapse into a single
+record with a comma-joined reason, and a quick-channel reaction-floor miss merges
+into that same record rather than counting twice. (Older installs' bare
+`infractionDates` timestamp lists are read too, shown reason-less, and migrated
+into `infractionLog` on the member's next infraction.) Bot-issued pings are
+counted inline by the advert commands and `reaction_check`; manually typed staff
+infractions are counted by the sticky's `.*` branch — disjoint message sets, so
+nothing is double-counted.
 
 ### 🛠️ Infraction admin command — [infraction_admin](infraction_admin/)
 
 One staff **slash command**, `/infractions`, with an action menu (**view** / **clear**
 / **set**) and a native member-picker (a `user` slash-command option, so you
 autocomplete the right person instead of pasting IDs): view shows the count over the
-rolling 6 months plus ban status, clear wipes the history and lifts any active ban,
-and set writes a count (1–99). It reads and writes the same `infractionDates` /
-`advertBan` database the advert commands use. Folding the three actions into one
+rolling 6 months plus ban status **and a dated list of each infraction with what
+it was for and a jump-link to the offending post when known**, clear wipes the
+history and lifts any active ban, and set writes a count (1–99). It reads and
+writes the same `infractionLog` / `advertBan` database the advert commands use. Folding the three actions into one
 command keeps it to a single slash-command slot (YAGPDB allows 3 on free servers).
 Restrict to staff.
 
@@ -119,6 +128,22 @@ or **looking | dms open** within the window is how a member keeps their ad(s).
 "Still has an advert" reuses the advert commands' `lastMsg_<channel>` records
 (resolved with `getMessage`), and the recheck is the command scheduling itself
 forward via `scheduleUniqueCC`.
+
+### ⏳ Post expiry — [post_expiry](post_expiry/)
+
+Old posts delete themselves: adverts and member intros after **60 days**,
+everything in #rule_infractions after **180 days** (matching the rolling
+infraction-count window). Two interval-triggered commands (which cost no
+message-trigger slots) do the sweeping. Adverts/intros need no new records —
+the sweeper walks the `lastMsg_<channel>` entries the advert and intro
+commands already write, reading each post's age from its message-ID snowflake,
+so even the pre-existing backlog drains automatically. #rule_infractions has
+no unique index (many pings per member), so the sticky — the one command that
+runs after every message there — appends IDs to 30-day bucket entries
+(`infrLedger_<n>`, a fixed ~7 entries total, never one per infraction) that
+the second sweeper prunes. Everything deletes by exact recorded ID, so pins,
+rules posts, and stickies are untouchable by construction, and every execution
+stays inside the free-tier DB-op caps.
 
 ### 🩹 Member intros — [member_intros_fix](member_intros_fix/)
 
@@ -164,7 +189,8 @@ The diagram above traces one advert post from the top. In plain terms:
   same ad copy-pasted across channels. If there are **none**, nothing else
   happens — the post is fine. If there **is** one, the bot posts **one ping in
   #rule_infractions**, adds a ⏳ `:staffpending:` reaction to the ad, and counts
-  the infraction (3rd = a warning line, 4th = a 14-day advert ban).
+  the infraction (3rd = a warning line, 4th and every one after = a fresh 14-day
+  advert ban).
 - **Quick channels get one extra check** (armed by the sticky, so it's free):
   about **5 minutes** later the bot re-reads the post and, if it has fewer than
   **3 approved reaction tags**, pings the author to add them.
@@ -223,6 +249,8 @@ dashboard → **Custom Commands** and:
    - the nickname normalizer (and `nametest`)
    - `get_roles_dms_closed`
    - the member-intros fix
+   - the two post-expiry sweepers and the sticky's ledger additions
+     ([post_expiry](post_expiry/))
 
 2. **Re-enable the three original advert-moderator commands.** These are the ones
    the consolidated commands replaced, and they sit at the **top of the command

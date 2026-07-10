@@ -81,11 +81,12 @@ INFRACTION COUNTER (3rd / 4th-strike escalation)
 This command also counts each person's infractions over a rolling 6-month window
 and escalates:
   • 3rd infraction in 6 months → the infraction notice gains a warning line.
-  • 4th infraction in 6 months → the person is suspended from posting adverts for
-    14 days (a self-expiring `advertBan` flag the advert commands check), a
-    heads-up is posted to the bot-spam channel so staff know a ban landed, and the
-    person's infraction history is wiped so they start clean once the ban is
-    served (which means the count never climbs past 4).
+  • 4th infraction in 6 months (and EVERY infraction after) → the person is
+    suspended from posting adverts for 14 days (a self-expiring `advertBan` flag
+    the advert commands check) and a heads-up is posted to the bot-spam channel so
+    staff know a ban landed. History is NOT wiped — entries only drop once they age
+    past the 6-month window — so a member who infracts again after a ban expires is
+    immediately re-muted for another 14 days.
 
 Set the config near the top of the command:
        {{ $botSpam := 0 }}   → your bot-spam channel ID (0 disables the heads-up)
@@ -93,12 +94,33 @@ Leave $infrWindowSecs (180 days) and $advertBanSecs (14 days) unless you want to
 change those durations.
 
 The count is stored as ONE database entry per user — a list of infraction
-timestamps under the key `infractionDates`, pruned to the last 6 months on every
-write. The bot's own pings never fire this `.*` trigger, so the advert commands
+records under the key `infractionLog` (each record holds the time, a
+comma-joined reason, and the offending post's channel/message id for a jump
+link), pruned to the last 6 months on every write. Older installs used a bare
+timestamp list under `infractionDates`; those entries are still read and are
+migrated into `infractionLog` the next time the member infracts. The bot's own
+pings never fire this `.*` trigger, so the advert commands
 count those; THIS branch only counts infractions a human types here by hand
 (matched by the first user @mention in the message). Set the SAME $botSpam,
 $infrWindowSecs, and $advertBanSecs in the three advert commands and reaction
 check so every path counts identically.
+
+
+EXPIRY LEDGER (feeds the 180-day channel cleanup)
+-------------------------------------------------
+Because this command runs after EVERY message in #rule_infractions (`.*` for
+human posts, execCC for bot pings), it also records each message's ID for the
+post-expiry system (see the post_expiry folder). IDs are appended to one
+30-day bucket entry (`infrLedger_<n>`, owned by the channel ID) — about 7
+entries exist in total at any time, regardless of infraction volume.
+
+Nothing to configure here: if you paste the current infractions_sticky.go (or
+re-apply your three "easiest path" edits on top of it), the ledger lines come
+with it. The actual deleting is done by the post_expiry/infraction_expiry.go
+interval command — without it the ledger just sits there, tiny and harmless.
+If you edited your own sticky rather than pasting this file, copy across the
+`$ledger` lines: the cslice at the top, the two branch appends, the two
+sendMessageRetID escalation lines, and the flush block at the bottom.
 
 
 NOTE ON RAPID-FIRE PINGS

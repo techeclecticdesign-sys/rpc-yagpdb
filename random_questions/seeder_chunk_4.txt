@@ -1,0 +1,142 @@
+{{ $slice := cslice }}
+{{ $existing := (dbGet 0 "questions") }}
+{{ if $existing }}{{ $slice = $existing.Value }}{{ end }}
+{{ $slice = $slice.AppendSlice (cslice
+  `What scientific discovery would change the course of humanity overnight if it was discovered?`
+  `Do you think that humans will ever be able to live together in harmony?`
+  `What would your perfect bar look like?`
+  `What's the scariest non-horror movie?`
+  `What's the most amazing true story you've heard?`
+  `What's the grossest food that you just can't get enough of?`
+  `What brand are you most loyal to?`
+  `What's the most awkward thing that happens to you on a regular basis?`
+  `If you had to disappear and start a whole new life, what would you want your new life to look like?`
+  `What movie or book do you know the most quotes from?`
+  `What was one of the most interesting concerts you've been to?`
+  `Where are you not welcome anymore?`
+  `What do you think could be done to improve the media?`
+  `What's the most recent show you've binge watched?`
+  `What's the worst movie trope?`
+  `What's a common experience for many people that you've never experienced?`
+  `What are some misconceptions about your hobby?`
+  `What's the smartest thing you've seen an animal do?`
+  `What's the most annoying noise?`
+  `What did you Google last?`
+  `What's the dumbest thing someone has argued with you about?`
+  `If money and practicality weren't a problem, what would be the most interesting way to get around town?`
+  `What's the longest rabbit hole you've been down?`
+  `What's the saddest scene in a movie or TV series?`
+  `What's the most frustrating product you own?`
+  `What inconsequential super power would you like to have?`
+  `What qualities do all your friends have in common?`
+  `What odd smell do you really enjoy?`
+  `What's the coolest animal you've seen in the wild?`
+  `What's the best lesson you've learned from a work of fiction?`
+  `What food do you crave most often?`
+  `Who in your life has the best / worst luck?`
+  `What fashion trend makes you cringe or laugh every time you see it?`
+  `What's your best story of you or someone else trying to be sneaky and failing miserably?`
+  `Which apocalyptic dystopia do you think is most likely?`
+  `If you had a HUD that showed three stats about any person you looked at, what three stats would you want?`
+  `What's the funniest thing you've seen a kid do?`
+  `What's your secret talent?`
+  `What's the best way you or someone you know has gotten out of a ticket / trouble with law?`
+  `Tear gas makes people cry and laughing gas makes people giggle, what other kinds of gases?`
+  `What's the most beautiful beach you've been to?`
+  `What's the most anxiety inducing thing you do on a regular basis?`
+  `What's something that everyone agrees we should change, but somehow it never changes?`
+  `What trend are you tired of?`
+  `What's incredibly cheap and you would pay way more for?`
+  `What would the adult version of an ice-cream truck sell and what song would it play?`
+  `What company do you despise?`
+  `When was the most inappropriate time you busted out in laughter?`
+  `What would be an accurate tag line for each month?`
+  `What's the most overrated product out on the market?`
+  `What word do you always misspell?`
+  `What naps are the most satisfying?`
+  `What's the weirdest thing you've found lying on the ground / side of the road?`
+  `What's the funniest TV show you've ever seen?`
+  `What's the most embarrassing story from your childhood?`
+  `What animal is the most majestic?`
+  `What's something that everyone knows is true, but we don't like to admit it?`
+  `What always cheers you up when you think about it?`
+  `What sport could you play the longest in a televised game, without anyone discovering you aren't professional?`
+  `If you could talk to animals and they would understand you, but you couldn't understand them, what would you?`
+  `What's the most boring sport, and what would you do to make it more exciting?`
+  `What's the creepiest tech out there?`
+  `Who did you use to look up to, but they screwed up and you lost faith in them?`
+  `What's fine in small numbers but terrifying in large numbers?`
+  `Do you like things to be carefully planned or do you prefer to just go with the flow?`
+  `What animal would you most like to eat?`
+  `What fictional characters have you had a crush on over the years?`
+  `What would the box with all your hopes and dreams inside look like?`
+  `What was the worst shopping experience you've ever had?`
+  `What story you've heard has stayed with you and always disturbs you every time you think about it?`
+  `What was the most important appointment or deadline you missed?`
+  `If you were a clown themed super hero, what powers would you have?`
+  `If you could airdrop anything you want, worth two million dollars or less, anywhere you want, what?`
+  `If you lived in a virtual reality world of your own creation, what would it look like?`
+  `What two things are terrible when separate but great when you put them together?`
+  `What did you believe for way too long as a child?`
+  `What big event do you think will happen soon that most people aren't expecting?`
+  `What still makes you cringe when you think back on it?`
+  `What current trend makes no sense to you?`
+  `If you owned a restaurant, what kind of food would it serve?`
+  `Which celebrity is the most likely to have a collection of canes that are just for show?`
+  `What's the weirdest crush you've had?`
+  `What do a lot of people have very strong opinions about, even though they know very little about it?`
+  `What's your go to casino game?`
+  `An epic feast is held in your honor, what's on the table?`
+  `What's your favorite holiday movie?`
+  `Who is the most manipulative person you've ever met?`
+  `Who is the most creative person you know?`
+  `What's the funniest pick up line you've heard?`
+  `How ambitious are you?`
+  `What did you like / dislike about where you grew up?`
+  `What elements of pop culture will be forever tied in your mind to your childhood?`
+  `What's your good luck charm?`
+  `What's legal now, but probably won't be in 25 years?`
+  `Would you want the ability to hear the thoughts of people near you if you couldn't turn ability?`
+  `When was the last time you stayed up through the entire night?`
+  `What's something that people think makes them look cool, but actually has the opposite effect?`
+  `What's the oldest thing you own?`
+  `What has someone borrowed but never given back?`
+  `Where is the best place you've been for taking walks?`
+  `If cartoon physics suddenly replaced real physics, what are some things you would want to try?`
+  `What from the present will withstand the test of time?`
+  `Who in your life is the worst at using technology?`
+  `What just around the corner tech are you eager to get your hands on?`
+  `What do you do when you hear something fall in the middle of the night while you are in bed?`
+  `What's the most disgusting sounding word in the English language?`
+  `What was ruined because it became popular?`
+  `What outdated slang do you use on a regular basis?`
+  `What was the biggest realization you had about yourself?`
+  `What's your best example of easy come, easy go?`
+  `What small change greatly improves a person's appearance?`
+  `What topic could you spend hours talking about?`
+  `What happens regularly that would horrify a person from 100 years ago?`
+  `What do a lot of people hope will happen but is just not going to happen?`
+  `What's the weirdest thing that has happened to you while working at your job?`
+  `What questions would you like to ask a time traveler from 200 years in the future?`
+  `Which way should toilet paper hang, over or under?`
+  `What's the most physically painful thing you've ever experienced?`
+  `What horror story do you have from a job you've had?`
+  `What's the most rage inducing game you've ever played?`
+  `What's the biggest overreaction you've ever seen?`
+  `What are some of the most common misconceptions?`
+  `What job doesn't exist now but will exist in the future?`
+  `What awful movie do you love?`
+  `What normally delicious food gets ruined when you wrap it in a tortilla?`
+  `What's your best example of fake it till you make it?`
+  `What were you completely certain of until you found out you were wrong?`
+  `What's something commonly done that gets progressively weirder the more you think about it?`
+  `What's the cutest thing you can imagine? Something so cute it's almost painful.`
+  `If you were given unlimited resources, how would you lure the worst of humanity into one stadium?`
+  `What do you think about when you hear the word "classy"?`
+  `What near future predictions do you have?`
+  `What do you need help with most often?`
+  `What piece of "art" would you create if you had to pretend to be an artist?`
+  `What do you do to make the world a better place?`
+) }}
+{{ dbSet 0 "questions" $slice }}
+Loaded chunk. Total now: {{ len $slice }}

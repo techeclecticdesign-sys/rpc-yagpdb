@@ -7,13 +7,20 @@ One staff slash command, /infractions, that manages the advert-infraction counte
 the advert commands maintain (the per-user `infractionDates` list + `advertBan`
 flag). You pick an action, then a user (and a count for "set"):
 
-  /infractions  action: view   user: @someone            → show count + ban status
+  /infractions  action: view   user: @someone            → show count + dated list + ban status
   /infractions  action: clear  user: @someone            → wipe history AND lift ban
   /infractions  action: set    user: @someone  count: N  → set the count (1-99)
 
-Setting a count of 4 or more advert-bans the member for 14 days immediately and
-resets their history, exactly as a live 4th infraction would — so "set" is also
-how you apply a ban by hand. Use "clear" to lift it.
+"view" shows how many infractions the member has in the last 6 months, then one
+line per infraction: the date, what it was for (e.g. "headers, banned word" — a
+post with several problems is a single line with a comma-joined reason), and a
+jump-link to the offending post when one was recorded. Older entries from before
+this feature, and hand-set ones, show without a reason.
+
+Setting a count of 4 or more advert-bans the member for 14 days immediately — so
+"set" is also how you apply a ban by hand. Unlike before, it does NOT reset their
+history: the entries are kept, so any further infraction re-applies a fresh 14-day
+ban. Use "clear" to lift the ban and zero them out.
 
 The "user" argument is a User-type slash option, which Discord shows as a
 member-picker you type to autocomplete — so you can't pick the wrong person.

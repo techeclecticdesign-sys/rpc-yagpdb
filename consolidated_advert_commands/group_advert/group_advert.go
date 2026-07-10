@@ -5,6 +5,7 @@
 {{ $botSpam := 0 }}
 {{ $infrWindowSecs := 15552000 }}{{/* 180 days */}}
 {{ $advertBanSecs := 1209600 }}{{/* 14 days */}}
+{{ $graceSecs := 600 }}{{/* 10-min delete-and-repost grace window */}}
 {{ $staffPending := "staffpending:1442331141771366513" }}
 {{ $askTheStaff := 324571668569915393 }}
 {{ $banned := cslice
@@ -55,12 +56,25 @@
 {{ end }}
 
 {{- /* ===== 2. COOLDOWN ===== */ -}}
+{{- /* Fetch the recorded ad once: whether it still exists (getMessage) drives
+     both the duplicate check below and the delete-and-repost grace window. */ -}}
+{{ $lastMsgId := (dbGet .User.ID $msgKey).Value }}
+{{ $oldExists := false }}
+{{ if $lastMsgId }}{{ if getMessage .Message.ChannelID $lastMsgId }}{{ $oldExists = true }}{{ end }}{{ end }}
+{{ $inGrace := false }}
 {{ $lastMsgTime := (dbGet .User.ID $timeKey).Value }}
 {{ if not $lastMsgTime }}{{ $lastMsgTime = (dbGet .User.ID $oldTimeKey).Value }}{{ end }}
 {{ if $lastMsgTime }}
   {{ $minTimeToPost := (currentTime.Add (toDuration (mult $lockoutHours .TimeHour -1))) }}
   {{ $remaining := $lastMsgTime.Sub $minTimeToPost }}
   {{ if ge (toInt $remaining.Seconds) 0 }}
+    {{- /* Still on cooldown — but if the recorded ad has been deleted and it was
+         posted under $graceSecs ago, let this repost through instead of blocking,
+         so a delete-to-fix within the window isn't hard-failed. */ -}}
+    {{ $age := currentTime.Sub $lastMsgTime }}
+    {{ if and (not $oldExists) (le (toInt $age.Seconds) $graceSecs) }}
+      {{ $inGrace = true }}
+    {{ else }}
     {{ sendDM (cembed
       "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because you have posted an advertisement on this channel too recently. Here is the message that was not posted: ")
       "description" .Message.Content
@@ -71,12 +85,12 @@
     ) }}
     {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
     {{ return }}
+    {{ end }}
   {{ end }}
 {{ end }}
 
 {{- /* ===== 3. DUPLICATE IN THIS CHANNEL ===== */ -}}
-{{ $lastMsgId := (dbGet .User.ID $msgKey).Value }}
-{{ if getMessage .Message.ChannelID $lastMsgId }}
+{{ if $oldExists }}
   {{ sendDM (cembed
     "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because you already have an advertisement on this channel. Here is the message that was not posted: ")
     "description" .Message.Content
@@ -91,15 +105,29 @@
 
 {{- /* ===== POST IS KEPT — record it, then run advisory checks ===== */ -}}
 {{ dbSet .User.ID $msgKey (str .Message.ID) }}
-{{ dbSet .User.ID $timeKey .Message.Timestamp.Parse }}
+{{ if $inGrace }}{{ dbSet .User.ID $timeKey $lastMsgTime }}{{ else }}{{ dbSet .User.ID $timeKey .Message.Timestamp.Parse }}{{ end }}
 
 {{ $issues := cslice }}
+{{- /* $tags: a short machine tag per issue, kept in lock-step with $issues, so
+     the recorded infraction can list what it was for (headers, banned word …). */ -}}
+{{ $tags := cslice }}
 
-{{- /* --- ADVISORY: group header rules (one header line, within its cap) --- */ -}}
+{{- /* --- ADVISORY: group header rules (one header line, within its cap).
+     A #/##/### line with nothing but trailing whitespace after it is a header
+     too — Discord renders the NEXT line as its heading text, so stitch them
+     together for the count and cap checks. Marker-only test runs first: "# "
+     matches the plain-header prefix too but must be stitched, not measured as
+     an empty header. --- */ -}}
 {{ $headers := cslice }}
-{{ range (split .Message.Content "\n") }}
-  {{ if or (hasPrefix . "# ") (hasPrefix . "## ") (hasPrefix . "### ") }}
-    {{ $headers = $headers.Append . }}
+{{ $lines := split .Message.Content "\n" }}
+{{ range $i, $line := $lines }}
+  {{ $t := trimSpace $line }}
+  {{ if and (hasPrefix $line "#") (or (eq $t "#") (eq $t "##") (eq $t "###")) }}
+    {{ $next := "" }}
+    {{ if lt (add $i 1) (len $lines) }}{{ $next = index $lines (add $i 1) }}{{ end }}
+    {{ if $next }}{{ $headers = $headers.Append (printf "%s %s" $t $next) }}{{ end }}
+  {{ else if or (hasPrefix $line "# ") (hasPrefix $line "## ") (hasPrefix $line "### ") }}
+    {{ $headers = $headers.Append $line }}
   {{ end }}
 {{ end }}
 {{ $tooMany := gt (len $headers) 1 }}
@@ -109,10 +137,14 @@
   {{ $cap := 50 }}{{ $prefixLen := 2 }}
   {{ if hasPrefix $line "### " }}{{ $cap = 70 }}{{ $prefixLen = 4 }}
   {{ else if hasPrefix $line "## " }}{{ $cap = 60 }}{{ $prefixLen = 3 }}{{ end }}
-  {{ if gt (len (toRune (slice $line $prefixLen))) $cap }}{{ $tooLong = true }}{{ end }}
+  {{- /* a custom emoji <:name:id> / <a:name:id> renders as one glyph but is a
+       long literal in the text — count each as a single char for the cap. */ -}}
+  {{ $body := reReplace "<a?:\\w+:\\d+>" (slice $line $prefixLen) "x" }}
+  {{ if gt (len (toRune $body)) $cap }}{{ $tooLong = true }}{{ end }}
 {{ end }}
 {{ if or $tooMany $tooLong }}
   {{ $issues = $issues.Append "Group adverts may only have **one** line of header text. Use regular **bold** for any additional lines." }}
+  {{ $tags = $tags.Append "headers" }}
 {{ end }}
 
 {{- /* --- ADVISORY: banned words (whole word, case-insensitive) --- */ -}}
@@ -128,6 +160,7 @@
       {{ if not ($seen.Get $k) }}{{ $seen.Set $k true }}{{ $spoilered = $spoilered.Append (printf "||%s||" .) }}{{ end }}
     {{ end }}
     {{ $issues = $issues.Append (printf "It contains wording that isn't allowed here: %s" (joinStr " " $spoilered)) }}
+    {{ $tags = $tags.Append "banned word" }}
   {{ end }}
 {{ end }}
 
@@ -158,6 +191,7 @@
   {{ end }}
   {{ if $dupChannel }}
     {{ $issues = $issues.Append (printf "It looks identical to your ad in <#%s>. Cross-channel adverts must be distinctly different from each other and searching for different things. Please choose a channel for your advert." $dupChannel) }}
+    {{ $tags = $tags.Append "dupe" }}
   {{ end }}
 {{ end }}
 
@@ -166,30 +200,40 @@
   {{ $body := "" }}
   {{ range $issues }}{{ $body = joinStr "" $body "\n• " . }}{{ end }}
 
-  {{- /* infraction count — prune to 6-month window, append now */ -}}
+  {{- /* infraction log — prune to the 6-month window, migrate any legacy
+         plain-timestamp entries, then append this post's record. Entries are
+         only ever dropped once they age past the window — NO reset on the 4th,
+         so the count keeps climbing and every infraction from the 4th on
+         re-applies the ban below. Each record is {t,r,c,m}: unix time, a
+         comma-joined reason (from $tags), and the post's channel/message id for
+         a jump link in /infractions view. */ -}}
   {{ $cutoff := (add (toInt currentTime.Unix) (mult $infrWindowSecs -1)) }}
-  {{ $dates := cslice }}
-  {{ $prev := (dbGet .User.ID "infractionDates").Value }}
-  {{ if $prev }}{{ range $prev }}{{ if ge (toInt .) $cutoff }}{{ $dates = $dates.Append (toInt .) }}{{ end }}{{ end }}{{ end }}
-  {{ $dates = $dates.Append (toInt currentTime.Unix) }}
-  {{ $count := len $dates }}
-  {{ dbSet .User.ID "infractionDates" $dates }}
+  {{ $log := cslice }}
+  {{ $legacy := (dbGet .User.ID "infractionDates").Value }}
+  {{ if $legacy }}{{ range $legacy }}{{ if ge (toInt .) $cutoff }}{{ $log = $log.Append (sdict "t" (toInt .) "r" "" "c" "" "m" "") }}{{ end }}{{ end }}{{ end }}
+  {{ $prevLog := (dbGet .User.ID "infractionLog").Value }}
+  {{ if $prevLog }}{{ range $prevLog }}{{ if ge (toInt .t) $cutoff }}{{ $log = $log.Append . }}{{ end }}{{ end }}{{ end }}
+  {{ $log = $log.Append (sdict "t" (toInt currentTime.Unix) "r" (joinStr ", " $tags) "c" (str .Channel.ID) "m" (str .Message.ID)) }}
+  {{ $count := len $log }}
+  {{ dbSet .User.ID "infractionLog" $log }}
+  {{ if $legacy }}{{ dbDel .User.ID "infractionDates" }}{{ end }}
 
   {{- /* escalation line in the ping */ -}}
   {{ $suffix := "" }}
   {{ if eq $count 3 }}
     {{ $suffix = "\n\n⚠️ **This is your 3rd infraction within six months.** Further infractions will result in a temporary suspension of your advertising privileges." }}
   {{ else if ge $count 4 }}
-    {{ $suffix = "\n\n⛔ **This is your 4th infraction within six months.** Your advertising privileges have been suspended for 14 days." }}
+    {{ $suffix = printf "\n\n⛔ **This is infraction #%d within six months.** Your advertising privileges have been suspended for 14 days." $count }}
   {{ end }}
 
   {{ $pingID := sendMessageRetID $infractionsChannel (printf "Hey %s ! A few things to fix in your post in %s:%s\n\nPlease edit your post. Thanks!%s" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID) $body $suffix) }}
 
-  {{- /* 4th: 14-day advert ban + wipe history + bot-spam alert */ -}}
+  {{- /* 4th and every infraction after: (re)apply the 14-day advert ban +
+         bot-spam alert. History is NOT wiped, so each further slip re-mutes for
+         another 14 days. */ -}}
   {{ if ge $count 4 }}
     {{ dbSetExpire .User.ID "advertBan" (toInt currentTime.Unix) $advertBanSecs }}
-    {{ dbDel .User.ID "infractionDates" }}
-    {{ if $botSpam }}{{ sendMessage $botSpam (printf "⛔ <@%d> just hit their **4th infraction in 6 months** (latest in %s) and has been suspended from posting adverts for 14 days." .User.ID (printf "<#%d>" .Channel.ID)) }}{{ end }}
+    {{ if $botSpam }}{{ sendMessage $botSpam (printf "⛔ <@%d> now has **%d advert infractions in 6 months** (latest in %s) and has been suspended from posting adverts for 14 days." .User.ID $count (printf "<#%d>" .Channel.ID)) }}{{ end }}
   {{ end }}
   {{/* execCC re-sticks under this ping and hands the post to the sticky to
        start the :staffpending: re-check chain. */}}

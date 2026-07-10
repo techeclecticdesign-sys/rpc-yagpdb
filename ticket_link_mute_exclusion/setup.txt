@@ -1,0 +1,76 @@
+TICKET LINK-MUTE EXCLUSION — SETUP
+==================================
+
+THE PROBLEM
+-----------
+AutoModerator mutes anyone who posts a server link in (almost) any channel —
+everywhere except the group-search channels. But posting a server link inside a
+TICKET also mutes the person, which we don't want (e.g. someone opening a ticket
+to ask staff about a server they want approved).
+
+Tickets are created by "Jarvis", which is a renamed self-hosted YAGPDB, using
+YAGPDB's built-in ticket system. Each ticket is a brand-new channel, so you
+CAN'T exclude tickets by channel ID — the IDs change every time.
+
+AutoMod has no "ignore by channel name" option. The only handle it has for
+channels that don't exist yet is the channel's CATEGORY. So the fix is to make
+tickets land in a dedicated category, then tell AutoMod to ignore that category.
+
+(Note: YAGPDB tickets do NOT require a category — with none set, tickets are
+created loose at the top level, which is why ours currently have no category.)
+
+
+STEP 1 — CREATE A TICKETS CATEGORY
+----------------------------------
+1. In Discord, create a new category, e.g. "Tickets" (or "Support").
+2. Permissions: hide it from @everyone (deny View Channel). The ticket system
+   adds per-ticket permission overwrites when it opens each ticket, so the
+   opener and staff still get access; the category just needs to exist.
+3. Turn on Developer Mode (User Settings → Advanced → Developer Mode) and
+   right-click the category → Copy ID. Keep this ID for Step 3.
+
+
+STEP 2 — POINT THE TICKET SYSTEM AT THE CATEGORY
+------------------------------------------------
+1. Open the Jarvis (YAGPDB) dashboard for the server → Ticket System settings.
+2. Find the CATEGORY field (the category new tickets are created under) and set
+   it to the Tickets category from Step 1.
+3. Save.
+   • From now on every NEW ticket is created inside that category.
+   • Tickets that are ALREADY open were created loose and won't move on their
+     own — either drag them into the category manually, or just let them close
+     out normally. New tickets are covered immediately.
+
+
+STEP 3 — EXCLUDE THE CATEGORY IN AUTOMOD
+----------------------------------------
+1. Dashboard → Tools & Utilities → Automoderator → open the ruleset/rule that
+   mutes on server links.
+2. Add a condition: "Ignore categories" → "Ignore channels in the following
+   categories" → select (or paste the ID of) the Tickets category.
+3. Leave your existing group-search exclusion exactly as it is — it's a
+   separate condition and is unaffected.
+4. Save.
+
+Result: server links posted inside a ticket no longer mute; links in every
+other channel except the group-search channels still mute — unchanged.
+
+
+ALTERNATIVE (if you'd rather not set a ticket category)
+-------------------------------------------------------
+Instead of EXCLUDING tickets, flip the mute rule to be positive-scoped:
+"Active in categories" → list only the advert / search categories where links
+SHOULD mute. Then tickets — and anything outside those categories — are ignored
+automatically, with no ticket-system change.
+Trade-off: links posted in other random channels (outside the listed
+categories) would no longer mute. Only use this if you want the mute limited to
+the advert areas rather than server-wide.
+
+
+NOTES
+-----
+• Discord caps a category at 50 channels. If more than 50 tickets could be open
+  at once they'd fail to create under the category (YAGPDB has no overflow
+  category). Not a concern at normal ticket volume.
+• "Jarvis" = a renamed, self-hosted YAGPDB instance. Anything the YAGPDB docs
+  say about the ticket system / AutoMod applies to it.

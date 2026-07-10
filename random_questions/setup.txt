@@ -1,0 +1,106 @@
+========================================================================
+ RANDOM QUESTION BOT — YAGPDB setup
+========================================================================
+
+WHAT THIS DOES
+  Stores all 595 questions as ONE database entry (a cslice under the key
+  "questions"), then a tiny command picks one at random. This sidesteps the
+  10,000-char-per-custom-command limit without touching the free-tier DB
+  count limit.
+
+WHY THIS APPROACH (free-tier math)
+  - CC code cap ........... 10,000 chars per command  -> we never store the
+                            list inside the picker; it lives in the DB.
+  - DB entry COUNT cap .... 50 x member_count (free)   -> we use exactly 1 key.
+  - DB entry SIZE cap ..... 100 kB per entry           -> our list is ~37 kB.
+  - DB calls per exec ..... 10 (free)                  -> picker uses just 1.
+  Net permanent cost: 1 custom command + 1 database entry.
+
+------------------------------------------------------------------------
+ FILES
+------------------------------------------------------------------------
+  seeder_chunk_1.txt .. 150 questions   (~9 kB each, all under the 10k cap)
+  seeder_chunk_2.txt .. 132 questions
+  seeder_chunk_3.txt .. 134 questions
+  seeder_chunk_4.txt .. 135 questions
+  seeder_chunk_5.txt ..  44 questions
+  asker.txt ........... the permanent random-question command
+                        (595 questions total)
+
+------------------------------------------------------------------------
+ STEP 1 — SEED THE DATABASE (one time)
+------------------------------------------------------------------------
+  You only need ONE spare command slot for this. Reuse it 5 times:
+
+  1. Create a new Custom Command.
+       Trigger type: Command
+       Trigger:      -seed          (anything; it's temporary)
+  2. Paste the contents of seeder_chunk_1.txt as the response. Save.
+  3. Run  -seed  in your server. It replies: "Loaded chunk. Total now: 150".
+  4. Edit the SAME command: replace the response with seeder_chunk_2.txt.
+     Save, run -seed again -> "Total now: 282".
+  5. Repeat for chunks 3, 4, 5. After chunk 5 it should say:
+       "Loaded chunk. Total now: 595"
+  6. DELETE the -seed command. The data stays in the database.
+
+  NOTE: The chunks are additive (they append to whatever is already stored).
+  Run each chunk EXACTLY ONCE. If you lose track, wipe and restart with:
+       {{ dbDel 0 "questions" }}
+  then run chunks 1..5 again in order.
+
+------------------------------------------------------------------------
+ STEP 2 — CREATE THE ASKER (permanent)
+------------------------------------------------------------------------
+  Create a new Custom Command and paste asker.txt as the response.
+
+  Pick ONE trigger:
+   * On demand:   Trigger type = Command,  Trigger = question
+                  -> users type  -question  to get a random one.
+   * Automatic:   Trigger type = Interval,  every N minutes/hours,
+                  set the target channel -> bot posts one on its own.
+                  (Free tier minimum interval is ~5-10 min.)
+
+------------------------------------------------------------------------
+ STEP 3 — IF YOUR TRIGGER IS "topic" (override the built-in command)
+------------------------------------------------------------------------
+  YAGPDB ships a built-in "topic" command (Fun group). If you name this
+  custom command's trigger "topic", BOTH fire on -topic and you get two
+  replies. Built-in commands and custom commands are separate systems on
+  the same prefix, so you must disable the built-in one:
+
+  1. Dashboard -> Core -> Command Settings.
+  2. Find the built-in "topic" command (Fun group).
+  3. Disable it (or add an override that disables just "topic"). Save.
+
+  Command Settings only governs BUILT-IN commands -- it never touches
+  custom commands, so your picker keeps working and -topic now runs only
+  yours.
+
+  DON'T uncheck the global "All commands enabled" to do this -- that kills
+  every built-in command. Disable the single "topic" command only.
+
+  (Not using the name "topic"? Skip this step -- no other trigger, e.g.
+  "question"/"q"/"ask", collides with a built-in.)
+
+------------------------------------------------------------------------
+ HOW THE PICKER WORKS (asker.txt)
+------------------------------------------------------------------------
+  {{ $q := (dbGet 0 "questions").Value }}
+  {{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No questions loaded yet.{{ end }}
+
+  - dbGet 0 "questions"  reads the single stored cslice (1 DB call).
+  - randInt (len $q)     returns 0 .. len-1.
+  - index $q N           pulls that question out.
+
+------------------------------------------------------------------------
+ ADDING / EDITING QUESTIONS LATER
+------------------------------------------------------------------------
+  Easiest: edit yagpdb_topics.txt (one question per line), regenerate the
+  chunks, wipe with  {{ dbDel 0 "questions" }}  and re-run the chunks.
+
+  To append a few without wiping, make a one-off command:
+    {{ $s := (dbGet 0 "questions").Value }}
+    {{ $s = $s.AppendSlice (cslice `New question one?` `New question two?`) }}
+    {{ dbSet 0 "questions" $s }}
+    Total now: {{ len $s }}
+========================================================================

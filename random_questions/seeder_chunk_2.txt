@@ -1,0 +1,139 @@
+{{ $slice := cslice }}
+{{ $existing := (dbGet 0 "questions") }}
+{{ if $existing }}{{ $slice = $existing.Value }}{{ end }}
+{{ $slice = $slice.AppendSlice (cslice
+  `What kind of interior do you like a restaurant to have?`
+  `What is the worst restaurant you have ever eaten at?`
+  `If you opened a restaurant, what kind of food would you serve?`
+  `What is the strangest themed restaurant you have heard of?`
+  `Would you eat at a restaurant that was really dirty if the food was amazing?`
+  `What is the most disgusting thing you have heard happened at a restaurant?`
+  `What was your favorite restaurant when you were a child?`
+  `Where would you like to travel next?`
+  `What is the longest plane trip you have taken?`
+  `What's the best way to travel? (Plane, car, train, etc.)`
+  `Where is the most relaxing place you have been?`
+  `Do you prefer traveling alone or with a group?`
+  `What do you think of tour group packages?`
+  `Do you prefer to go off the beaten path when you travel?`
+  `What was the most overhyped place you've traveled to?`
+  `Have you traveled to any different countries? Which ones?`
+  `Where is the most awe-inspiring place you have been?`
+  `What's the best thing about traveling? How about the worst thing?`
+  `How do you think traveling to a lot of different countries changes a person?`
+  `Talk about some of the interesting people you have met while traveling.`
+  `What do you think of staycations? (Vacationing and seeing tourist attractions where you live.)`
+  `Where do you get your recommendations for what to do and where to stay when you travel?`
+  `What is your favorite piece of technology that you own?`
+  `What piece of technology is really frustrating to use?`
+  `What was the best invention of the last 50 years?`
+  `Does technology simplify life or make it more complicated?`
+  `Will technology save the human race or destroy it?`
+  `Which emerging technology are you most excited about?`
+  `What sci-fi movie or book would you like the future to be like?`
+  `What do you think the next big technological advance will be?`
+  `What technology from a science fiction movie would you most like to have?`
+  `What problems will technology solve in the next 5 years? What problems will it create?`
+  `What piece of technology would look like magic or a miracle to people in medieval Europe?`
+  `Can you think of any technology that has only made the world worse? How about a piece of technology that has only made the world better?`
+  `What is your favorite shirt?`
+  `Does fashion help society in any way?`
+  `What old trend is coming back these days?`
+  `What is a fashion trend you are really glad went away?`
+  `What is the most comfortable piece of clothing you own?`
+  `Do you care about fashion? What style of clothes do you usually wear?`
+  `If you didn't care at all what people thought of you, what clothes would you wear?`
+  `What is the best pair of shoes you have ever owned? Why were they so good?`
+  `Who do you think has the biggest impact on fashion trends: actors and actresses, musicians, fashion designers, or consumers?`
+  `What personal goals do you have?`
+  `What are your goals for the next two years?`
+  `How have your goals changed over your life?`
+  `How much do you plan for the future?`
+  `How do you plan to make the world a better place?`
+  `What are some goals you have already achieved?`
+  `What do you hope to achieve in your professional life?`
+  `Have your parents influenced what goals you have?`
+  `Do you usually achieve the goals you set? Why or why not?`
+  `What is the best way to stay motivated and complete goals?`
+  `What are some goals you have failed to accomplish?`
+  `What is the craziest, most outrageous thing you want to achieve?`
+  `When do you want to retire? What do you want to do when you retire?`
+  `Do you prefer summer or winter activities?`
+  `What do you like to do in the spring?`
+  `Did your family take seasonal vacations?`
+  `Which do you prefer, fall or spring?`
+  `Which season are you most active in?`
+  `What's the most refreshing thing on a hot summer day?`
+  `What's the best thing to do on a cold winter day?`
+  `Where is the nicest place you have been to in fall?`
+  `What is your favorite thing to eat or drink in winter?`
+  `Is it better to live where there are four seasons or where one season takes up most of the year?`
+  `What is the biggest holiday for your family?`
+  `What is your favorite holiday?`
+  `What holidays have been over-commercialized?`
+  `Do you wish there were more or fewer holidays? Why?`
+  `What do you know about the history of some holidays?`
+  `What kinds of food do you usually eat on your favorite holiday?`
+  `If you had to get rid of a holiday, which would you get rid of? Why?`
+  `Does having a day off for a holiday increase or decrease productivity at work?`
+  `If some of the lesser-known holidays were commercialized, what would the commercialization look like?`
+  `If you could make a holiday, what would it be like? What traditions would it have? What would people eat?`
+  `What do you think of online education?`
+  `What do you think of standardized tests?`
+  `Are bigger or smaller schools better?`
+  `Is teaching a skill that can be taught?`
+  `What will the future of education be?`
+  `How can governments make education more efficient?`
+  `How has the education you received changed your life?`
+  `How can technology improve education? Can it hurt education?`
+  `What or who has taught you most of the information you use regularly?`
+  `What are some good and bad things about the education system in your country?`
+  `What is your favorite cuisine or type of food?`
+  `What foods do you absolutely hate?`
+  `What do you think of buffets?`
+  `When was the last time you had a food fight?`
+  `What food looks disgusting but tastes delicious?`
+  `What do you get every time you go grocery shopping?`
+  `If your life was a meal, what would kind of meal would it be?`
+  `What would you want your last meal to be if you were on death row?`
+  `What food do you know you shouldn't eat but can't stop yourself?`
+  `Do you like spicy food? Why or why not? What is the spiciest thing you have ever eaten?`
+  `Does the government have a place in regulating food? To what extent should government regulate food?`
+  `When people make mistakes about food (especially foreign food), do you feel the need to correct them?`
+  `If your mind were an island, what would it look like?`
+  `What flavor of ice cream do you wish existed?`
+  `If you had a personal mascot, what would your mascot be?`
+  `If you were a king/queen, what would your throne look like?`
+  `Time freezes for everyone but you for one day. What do you do?`
+  `You have to relive one day of your life forever. Which day do you choose?`
+  `What does your own personal hell look like? How about your own personal heaven?`
+  `You find a remote that can rewind, fast forward, stop, and start time. What do you do with it?`
+  `If you could call up anyone in the world and have a one-hour conversation, who would you call?`
+  `The world has become infested with rabid dogs with the intelligence of a 5-year-old, where do you hole up?`
+  `A portal to another world opens in front of you. You don't know how long it will stay open or if you'll be able to get back after you go through. What do you do?`
+  `What weird food combinations do you really enjoy?`
+  `What social stigma does society need to get over?`
+  `What food have you never eaten but would really like to try?`
+  `What's something you really resent paying for?`
+  `What would a world populated by clones of you be like?`
+  `Do you think that aliens exist?`
+  `What are you currently worried about?`
+  `Where are some unusual places you've been?`
+  `Where do you get your news?`
+  `What are some red flags to watch out for in daily life?`
+  `What movie can you watch over and over without ever getting tired of?`
+  `When you are old, what do you think children will ask you to tell stories about?`
+  `If you could switch two movie characters, what switch would lead to the most inappropriate movies?`
+  `What inanimate object would be the most annoying if it played loud upbeat music while being used?`
+  `When did something start out badly for you but in the end, it was great?`
+  `How would your country change if everyone, regardless of age, could vote?`
+  `What animal would be cutest if scaled down to the size of a cat?`
+  `If your job gave you a surprise three day paid break to rest and recuperate, what would you do?`
+  `What's wrong but sounds right?`
+  `What's the most epic way you've seen someone quit or be fired?`
+  `If you couldn't be convicted of any one type of crime, what criminal charge would you like immunity to?`
+  `What's something that will always be in fashion, no matter how much time passes?`
+  `What actors or actresses play the same character in almost every movie or show they do?`
+) }}
+{{ dbSet 0 "questions" $slice }}
+Loaded chunk. Total now: {{ len $slice }}

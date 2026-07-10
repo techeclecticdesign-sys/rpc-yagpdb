@@ -87,15 +87,27 @@
   {{ if gt (len $msg.Attachments) 0 }}{{ $dirty = true }}{{ end }}
 {{ end }}
 
-{{/* headers — quick & 1x1 forbid any; group allows one short line */}}
+{{/* headers — quick & 1x1 forbid any; group allows one short line.
+     A #/##/### line with nothing but trailing whitespace after it is a header
+     too — Discord renders the NEXT line as its heading text, so for group
+     stitch them together for the count/cap checks (marker-only test first:
+     "# " matches the plain-header prefix too but must be stitched). */}}
 {{ if or (eq $type "quick") (eq $type "1x1") }}
   {{ range (split $msg.Content "\n") }}
-    {{ if or (hasPrefix . "# ") (hasPrefix . "## ") (hasPrefix . "### ") }}{{ $dirty = true }}{{ end }}
+    {{ if or (hasPrefix . "# ") (hasPrefix . "## ") (hasPrefix . "### ") (and (hasPrefix . "#") (or (eq (trimSpace .) "#") (eq (trimSpace .) "##") (eq (trimSpace .) "###"))) }}{{ $dirty = true }}{{ end }}
   {{ end }}
 {{ else if eq $type "group" }}
   {{ $headers := cslice }}
-  {{ range (split $msg.Content "\n") }}
-    {{ if or (hasPrefix . "# ") (hasPrefix . "## ") (hasPrefix . "### ") }}{{ $headers = $headers.Append . }}{{ end }}
+  {{ $lines := split $msg.Content "\n" }}
+  {{ range $i, $line := $lines }}
+    {{ $t := trimSpace $line }}
+    {{ if and (hasPrefix $line "#") (or (eq $t "#") (eq $t "##") (eq $t "###")) }}
+      {{ $next := "" }}
+      {{ if lt (add $i 1) (len $lines) }}{{ $next = index $lines (add $i 1) }}{{ end }}
+      {{ if $next }}{{ $headers = $headers.Append (printf "%s %s" $t $next) }}{{ end }}
+    {{ else if or (hasPrefix $line "# ") (hasPrefix $line "## ") (hasPrefix $line "### ") }}
+      {{ $headers = $headers.Append $line }}
+    {{ end }}
   {{ end }}
   {{ if gt (len $headers) 1 }}{{ $dirty = true }}{{ end }}
   {{ range $headers }}
@@ -103,7 +115,10 @@
     {{ $cap := 50 }}{{ $prefixLen := 2 }}
     {{ if hasPrefix $line "### " }}{{ $cap = 70 }}{{ $prefixLen = 4 }}
     {{ else if hasPrefix $line "## " }}{{ $cap = 60 }}{{ $prefixLen = 3 }}{{ end }}
-    {{ if gt (len (toRune (slice $line $prefixLen))) $cap }}{{ $dirty = true }}{{ end }}
+    {{- /* custom emoji <:name:id> / <a:name:id> render as one glyph — count
+         each as a single char for the cap (matches group_advert). */ -}}
+    {{ $body := reReplace "<a?:\\w+:\\d+>" (slice $line $prefixLen) "x" }}
+    {{ if gt (len (toRune $body)) $cap }}{{ $dirty = true }}{{ end }}
   {{ end }}
 {{ end }}
 

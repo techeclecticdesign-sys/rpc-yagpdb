@@ -1,0 +1,77 @@
+========================================================================
+ RP TOPICS BOT — /rptopic  (roleplay-specific companion to /topic)
+========================================================================
+
+WHAT THIS IS
+  A second, independent random-question command for your RP channels. It's the
+  same mechanism as the generic topic bot in ../random_questions/ — 54 questions
+  stored as ONE database cslice, a tiny command picks one at random — but under
+  a SEPARATE database key ("rpquestions" instead of "questions"), so the two
+  lists never mix and either can be reseeded without touching the other.
+
+  Permanent cost: 1 custom command + 1 database entry (owner 0, key
+  "rpquestions"). Seeding reuses a throwaway command slot you delete afterward.
+
+------------------------------------------------------------------------
+ FILES
+------------------------------------------------------------------------
+  rp_seeder.txt ... one-time loader; writes all 54 questions to "rpquestions".
+                    Overwrites (idempotent) — safe to run more than once.
+  rp_asker.txt .... the permanent /rptopic picker.
+
+------------------------------------------------------------------------
+ STEP 1 — SEED THE DATABASE (one time)
+------------------------------------------------------------------------
+  1. Create a new Custom Command.
+       Trigger type: Command
+       Trigger:      -rpseed          (temporary; anything works)
+  2. Paste the contents of rp_seeder.txt as the response. Save.
+  3. Run  -rpseed  in your server. It replies: "Loaded RP topics. Total: 54".
+  4. DELETE the -rpseed command. The data stays in the database.
+
+  Unlike the generic topic seeder, this one OVERWRITES rather than appends, so
+  running it twice is harmless — you always end up with exactly these 54.
+
+------------------------------------------------------------------------
+ STEP 2 — CREATE THE PICKER (permanent)
+------------------------------------------------------------------------
+  Create a new Custom Command and paste rp_asker.txt as the response.
+
+  Pick ONE trigger:
+   * On demand:  Trigger type = Command,  Trigger = rptopic
+                 -> users type  -rptopic  for a random RP question.
+   * Automatic:  Trigger type = Interval, every N minutes/hours, set the
+                 target channel -> the bot posts one on its own.
+
+  NO built-in override needed: unlike "topic" (which collides with YAGPDB's
+  built-in Fun command), there is no built-in "rptopic", so nothing conflicts.
+
+  RP-SPECIFIC CHANNELS: to keep this out of non-RP channels, restrict the
+  command to your RP channels on its dashboard page (Custom Command ->
+  Restrictions -> whitelist the channels). The generic /topic command stays
+  wherever you already have it.
+
+------------------------------------------------------------------------
+ HOW THE PICKER WORKS (rp_asker.txt)
+------------------------------------------------------------------------
+  {{ $q := (dbGet 0 "rpquestions").Value }}
+  {{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No RP topics loaded yet.{{ end }}
+
+  - dbGet 0 "rpquestions"  reads the stored cslice (1 DB call).
+  - randInt (len $q)       returns 0 .. len-1.
+  - index $q N             pulls that question out.
+
+------------------------------------------------------------------------
+ EDITING THE LIST LATER
+------------------------------------------------------------------------
+  Easiest: edit rp_seeder.txt (add/remove backtick lines), then re-run the
+  -rpseed command once — it overwrites the key with the new list.
+
+  To append a few without re-listing everything, make a one-off command:
+    {{ $s := (dbGet 0 "rpquestions").Value }}
+    {{ $s = $s.AppendSlice (cslice `New RP question one?` `New RP question two?`) }}
+    {{ dbSet 0 "rpquestions" $s }}
+    Total now: {{ len $s }}
+
+  To wipe entirely:  {{ dbDel 0 "rpquestions" }}
+========================================================================

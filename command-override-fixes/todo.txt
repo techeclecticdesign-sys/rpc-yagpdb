@@ -1,0 +1,1 @@
+engagement needs to be able to use topic.  we want to add dadjoke etc as some of the commands we can run.  jarvis needs to be added also.
