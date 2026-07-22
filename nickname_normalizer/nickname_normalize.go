@@ -2,8 +2,8 @@
      NICKNAME NORMALIZER
      Runs on every message in #age_verification (Regex trigger (?s).* + a
      dashboard channel restriction). It reads the poster's CURRENT server
-     nickname (or username if they have none), normalizes it, and — if the
-     result differs — sets it as their nickname.
+     nickname (falling back to their global display name, then username),
+     normalizes it, and — if the result differs — sets it as their nickname.
 
      Normalization, in order:
        1. Map "fancy font" Unicode letters/digits back to plain ASCII
@@ -52,8 +52,11 @@
   640 "r" 42801 "s" 7451 "t" 7452 "u" 7456 "v" 7457 "w" 655 "y" 7458 "z"
 }}
 
-{{/* Source string: current nickname, else username. */}}
+{{/* Source string: server nickname, else global display name (what people
+     actually see in chat — where the fancy fonts usually live), else the
+     plain username handle as a last resort. */}}
 {{ $display := .User.Username }}
+{{ if .User.Globalname }}{{ $display = .User.Globalname }}{{ end }}
 {{ if .Member.Nick }}{{ $display = .Member.Nick }}{{ end }}
 
 {{/* ----- STAGE 1: map fancy -> ASCII, drop disallowed -----

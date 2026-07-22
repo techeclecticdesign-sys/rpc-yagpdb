@@ -1,0 +1,168 @@
+{{/* Worldbuilding topics seeder — run ONCE to load the worldbuilding questions
+     into the "wbquestions" DB entry (owner 0). Like rp_seeder it OVERWRITES the
+     key in one shot, so it's safe to re-run: it always leaves exactly this list,
+     never duplicates. All fit in one command well under the 10,000-char cap.
+     Delete this command after seeding — the data stays in the DB. */}}
+{{ $slice := cslice
+  `Is there something that inspired your world's setting? If so, what?`
+  `What's the most dangerous place in your world?`
+  `What's the safest place in your world?`
+  `If someone visited your world, where would you tell them to go first?`
+  `What's one location everyone in your world knows about?`
+  `What natural landmarks make your world unique?`
+  `How do people travel between cities or regions?`
+  `Are there any unexplored places?`
+  `What's the biggest historical event that happened in your world so far?`
+  `Are there any historical misconceptions in your world?`
+  `Has your world experienced any major wars?`
+  `What important event is celebrated every year?`
+  `Are there any fandom worlds that have inspired your worlds?`
+  `What is a common childhood tradition for the children in your world?`
+  `Are there any unique weather events that don't exist on Earth?`
+  `What traditions are unique to your world?`
+  `Do fashion trends exist in your world? If so, what is the typical fashion?`
+  `What social class differences exist in your world?`
+  `What are some common superstitions in your world?`
+  `What's an animal unique to your world?`
+  `What's commonly kept as a pet in your world?`
+  `Does your world have any mythical creatures?`
+  `What does the day/night cycle look like in your world?`
+  `Is there a system of magic? How does it work?`
+  `What's the most common way people make a living?`
+  `What's a rumor currently spreading through your world?`
+  `What creature do travelers fear most on the roads?`
+  `How do people send messages across long distances?`
+  `What do people do for fun on their days off?`
+  `What natural disaster do people fear most?`
+  `Is there a place people are forbidden to enter? Why?`
+  `What's a common first job for young people?`
+  `What's the biggest lie a government or leader has told the public in your world?`
+  `What's the most dangerous job in your world?`
+  `What happens to people who can't pay their debts?`
+  `Who teaches children — parents, schools, temples, someone else?`
+  `What's a fashion trend that recently died out?`
+  `How do people tell time?`
+  `What's a common childhood fear in your world?`
+  `What's a border, wall, or boundary that matters in your world?`
+  `If your world ended tomorrow, what would be the cause?`
+  `Is currency primitive or well-defined? Are there multiple systems, or one unified across your world?`
+  `How many different languages are spoken?`
+  `Is your society patriarchal or matriarchal? Is it something else entirely?`
+  `Does your world experience seasons, or is it more biome-based?`
+  `Do people in your world feel ethically responsible for others, or do they fend for themselves?`
+  `What's the most famous duel, battle, or contest ever fought?`
+  `What's the biggest difference between city life and rural life?`
+  `Does your world have a map? Describe it or share it!`
+  `What are the most beautiful places in your world?`
+  `What factions are there in your world? Who is allied and who is enemies?`
+  `Does your world have a superpower? Describe them.`
+  `Does your world have a pantheon? Describe it.`
+  `Does your world have any taboos that would surprise us earth-folk?`
+  `Think of things like holidays, birthdays and weddings. How are they different in your world?`
+  `What military technologies define your world?`
+  `How does your world deal with crime and punishment?`
+  `How much worldbuilding do you need before you feel comfortable starting?`
+  `When you're building a world from scratch, where do you start: map, culture, history, magic system, a single image?`
+  `What's a staple food nearly everyone in your world eats?`
+  `What's considered a delicacy, and what would visitors find revolting?`
+  `What does street food look like in your world's biggest city?`
+  `What does a typical breakfast look like?`
+  `What does the inside of a common household look like?`
+  `What chores or daily tasks eat up most people's time?`
+  `How do people greet each other: handshakes, bows, or something stranger?`
+  `What gesture or phrase is deeply offensive in your world?`
+  `What's considered attractive in your world?`
+  `How are names given: family names, earned names, chosen names?`
+  `What's the rite of passage into adulthood?`
+  `What happens at funerals, and what do people do with their dead?`
+  `What's the most popular sport or game, and how rowdy do the fans get?`
+  `What music or instruments define your world's sound?`
+  `What art form is the most celebrated?`
+  `What stories do parents tell children to make them behave?`
+  `What do teenagers do that adults disapprove of?`
+  `What's considered the height of luxury?`
+  `How do people flirt or court in your world?`
+  `What swear words or insults exist? Give us the mild one and the unforgivable one.`
+  `How is aging viewed: are elders revered, ignored, or feared?`
+  `Who actually holds the power in your world, and who only appears to?`
+  `How does someone rise to power: birth, election, combat, coin?`
+  `What law exists that would completely baffle an outsider?`
+  `What's the most corrupt institution in your world?`
+  `How are disputes between neighbors settled?`
+  `What does the justice system consistently get wrong?`
+  `Who is the most famous criminal in your world's history? What are they famous for?`
+  `What would get someone exiled?`
+  `Are there spies, and who employs them?`
+  `Who controls information, and what are they not telling people?`
+  `What treaty, pact, or alliance is holding everything together... barely?`
+  `What's the black market like, and what moves through it?`
+  `What resource is most fought over?`
+  `What export is each region famous for?`
+  `Who runs trade: guilds, families, corporations, cartels?`
+  `What does poverty look like in your world? What does obscene wealth look like?`
+  `What jobs exist in your world that don't exist on Earth?`
+  `What's the climate like where most of your stories take place?`
+  `What plant is most prized, and which is most feared?`
+  `Is there a place of breathtaking natural beauty that's also deadly?`
+  `What lies beyond the edges of the map, as far as anyone knows?`
+  `Do people in your world think its flat, or spherical?`
+  `Are there ruins, and does anyone actually know who built them?`
+  `What kinds of things are underground in your world: tunnels, cities, things best left alone?`
+  `What do the stars and moons look like, and do they matter (navigation, fate, religion)?`
+  `What body of water matters most: an ocean, a river, a sacred lake?`
+  `What's your world's creation myth, and is any of it true?`
+  `What was your world's golden age, and why did it end?`
+  `What happened a century ago that still shapes daily life?`
+  `What phenomenon can no one in your world explain?`
+  `Are there cults, and what do they want?`
+  `What do people believe causes illness, and how do they treat it?`
+  `Is healing available to everyone, or only the rich or blessed?`
+  `Where do people go to pray, and what do they leave as offerings?`
+  `Do the gods (or whatever is up there) actually answer?`
+  `What creature is completely misunderstood: feared but harmless, or adored but deadly?`
+  `Is anything in your world immortal, and is that a blessing or a curse?`
+  `What's the most advanced technology, and who actually has access to it?`
+  `What single invention changed everything?`
+  `How is knowledge stored: libraries, oral tradition, crystals, clouds?`
+  `Who can read, and how much does literacy matter?`
+  `What is your world's medicine like: leeches, potions, prayer, nanobots?`
+  `Is there anything like newspapers, town criers, or an internet?`
+  `What would you hear at dawn in a small village?`
+  `What textures define daily life: rough homespun, polished chrome, living wood?`
+  `Who delivers babies, and what customs surround a birth?`
+  `Are there nomads, and how are they treated by settled folk?`
+  `Is any group treated unfairly in your world, and what story does society tell itself to justify it?`
+  `What's the drinking culture like?`
+  `What oaths do people swear by, and what happens when one is broken?`
+  `How do strangers prove they can be trusted: papers, sigils, reputation, vibes?`
+  `What's the tallest structure ever built, and why was it built?`
+  `What's a common tattoo, brand, or marking, and what does it signify?`
+  `What secret society might actually exist?`
+  `What's your world's Atlantis: the place people argue about whether it's real?`
+  `What sound means danger to everyone: bells, sirens, sudden silence?`
+  `What's your world's greatest unsolved mystery?`
+  `Who keeps the peace day to day: guards, militias, magic, mutual dread?`
+  `What would shock a visitor from Earth within their first hour in your world?`
+  `What would your world's tourism brochure highlight, and what would it conveniently leave out?`
+  `Drop your world's most average citizen into modern Earth: what breaks their brain first?`
+  `What piece of Earth culture would become an instant obsession in your world?`
+  `If your world had a nightly news broadcast, what's tonight's top story?`
+  `If you could spend a week in your world, where would you stay and what would you avoid?`
+  `Would YOU survive in your world? Honestly?`
+  `What Earth profession would be useless in your world, and which would be priceless?`
+  `How do you decide which lore makes it into the story and which stays in your notes?`
+  `Do you build the world to fit a story, or find stories inside the world?`
+  `What's your favorite worldbuilding detail that no one has ever asked about?`
+  `Have you ever retconned a piece of lore? What forced your hand?`
+  `Do you build many worlds, or pour everything into one?`
+  `Do you make in-world documents for fun: letters, menus, wanted posters, propaganda?`
+  `What's the oldest world you still use, and how has it changed since you built it?`
+  `If you could hire one professional for your world (cartographer, linguist, artist, historian), who gets the job?`
+  `What's a detail from a real you've been that made it into your world?`
+  `Which of your worlds would you actually want to live in, and which should stay safely fictional?`
+  `Do you hand partners lore docs up front, or let them discover the world in-story?`
+  `Has a partner ever added something to your world that became permanent canon?`
+  `What's something about your world that even YOU don't know yet?`
+}}
+{{ dbSet 0 "wbquestions" $slice }}
+Loaded worldbuilding topics. Total: {{ len $slice }}

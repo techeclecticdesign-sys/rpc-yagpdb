@@ -1,0 +1,76 @@
+========================================================================
+ WORLDBUILDING TOPICS BOT — /wbtopic  (worldbuilding companion to /topic)
+========================================================================
+
+WHAT THIS IS
+  A random-question command for worldbuilding prompts. Same mechanism as the RP
+  topic bot in ../rp_topics/ — the questions are stored as ONE database cslice
+  and a tiny command picks one at random — but under its OWN database key
+  ("wbquestions"), so it never mixes with the generic "questions", the RP
+  "rpquestions", or the OC "ocquestions" lists. Any one can be reseeded without
+  touching the others.
+
+  Permanent cost: 1 custom command + 1 database entry (owner 0, key
+  "wbquestions"). Seeding reuses a throwaway command slot you delete afterward.
+
+------------------------------------------------------------------------
+ FILES
+------------------------------------------------------------------------
+  wb_seeder.txt ... one-time loader; writes all questions to "wbquestions".
+                    Overwrites (idempotent) — safe to run more than once.
+  wb_asker.txt .... the permanent /wbtopic picker.
+
+------------------------------------------------------------------------
+ STEP 1 — SEED THE DATABASE (one time)
+------------------------------------------------------------------------
+  1. Create a new Custom Command.
+       Trigger type: Command
+       Trigger:      -wbseed          (temporary; anything works)
+  2. Paste the contents of wb_seeder.txt as the response. Save.
+  3. Run  -wbseed  in your server. It replies: "Loaded worldbuilding topics. Total: N".
+  4. DELETE the -wbseed command. The data stays in the database.
+
+  This seeder OVERWRITES rather than appends, so running it twice is harmless —
+  you always end up with exactly this list.
+
+------------------------------------------------------------------------
+ STEP 2 — CREATE THE PICKER (permanent)
+------------------------------------------------------------------------
+  Create a new Custom Command and paste wb_asker.txt as the response.
+
+  Pick ONE trigger:
+   * On demand:  Trigger type = Command,  Trigger = wbtopic
+                 -> users type  -wbtopic  for a random worldbuilding question.
+   * Automatic:  Trigger type = Interval, every N minutes/hours, set the
+                 target channel -> the bot posts one on its own.
+
+  No built-in "wbtopic" exists, so nothing conflicts.
+
+  WB-SPECIFIC CHANNELS: to keep this out of unrelated channels, restrict the
+  command to your worldbuilding channels on its dashboard page (Custom Command ->
+  Restrictions -> whitelist the channels).
+
+------------------------------------------------------------------------
+ HOW THE PICKER WORKS (wb_asker.txt)
+------------------------------------------------------------------------
+  {{ $q := (dbGet 0 "wbquestions").Value }}
+  {{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No worldbuilding topics loaded yet.{{ end }}
+
+  - dbGet 0 "wbquestions"  reads the stored cslice (1 DB call).
+  - randInt (len $q)       returns 0 .. len-1.
+  - index $q N             pulls that question out.
+
+------------------------------------------------------------------------
+ EDITING THE LIST LATER
+------------------------------------------------------------------------
+  Easiest: edit wb_seeder.txt (add/remove backtick lines), then re-run the
+  -wbseed command once — it overwrites the key with the new list.
+
+  To append a few without re-listing everything, make a one-off command:
+    {{ $s := (dbGet 0 "wbquestions").Value }}
+    {{ $s = $s.AppendSlice (cslice `New WB question one?` `New WB question two?`) }}
+    {{ dbSet 0 "wbquestions" $s }}
+    Total now: {{ len $s }}
+
+  To wipe entirely:  {{ dbDel 0 "wbquestions" }}
+========================================================================

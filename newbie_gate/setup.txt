@@ -1,0 +1,201 @@
+NEWBIE GATE — SETUP
+===================
+
+WHAT THIS DOES
+--------------
+Automates the whole "new member" routine you do by hand each morning:
+
+  • STUCK AT A GATE (no newbie role, no other role) — hasn't finished age
+    verification + rules:
+        the two gate tags (@age-please + @rules-please) are pinged ONCE A DAY in
+          #getting_started with the stock "you're stuck at the gates" reminder
+          (message 2 of the newbie_reminder command, STEP 4)
+        kicked once they've been in the server 24h+ and still have no newbie role
+          (they're welcome back any time)
+
+  • PAST THE GATES BUT NO ROLES (has the newbie role, hasn't picked any role):
+        @newbie is pinged ONCE A DAY with the stock "pick your roles" reminder
+          (message 1 of newbie_reminder, STEP 4)
+        the newbie role auto-falls-off at 7 days
+        NEVER kicked
+
+  • PICKED A ROLE (any role that isn't newbie / age-please / rules-please /
+    excluded): the newbie role is removed on the next sweep — they've graduated.
+
+Kick rule, plainly: we only kick someone who has been in the server 24h+ and does
+NOT have the newbie role. Anyone with the newbie role is never kicked.
+
+
+HOW IT'S BUILT (so future-you trusts it)
+----------------------------------------
+There is no member-join custom-command trigger and templates can't list the
+server's members, so the design is a LIST + a SWEEP:
+
+  • join_message.go (in the server JOIN message) writes one database row per
+    joiner: `gatePending`, owner = the member's id, value = their join unix time.
+  • newbie_gate (a MINUTE-INTERVAL command) pages that list with dbTopEntries
+    behind a rotating cursor — the exact pattern post_expiry/advert_expiry.go uses
+    — and for each member reads their CURRENT roles and kicks / drops the newbie
+    tag / leaves them, then advances the cursor. Rows are removed when a member
+    graduates, falls off, or leaves (and leave/kick also triggers the leave
+    cleanup, which wipes the row too).
+
+Why a central interval and NOT one scheduled job per member: YAGPDB has no cap on
+the NUMBER of pending scheduled jobs, but delayed CC runs are rate-limited to
+~6/min per channel and OVER-BUDGET RUNS ARE SILENTLY DROPPED. A dropped per-member
+hop would strand that member forever (never kicked / newbie never removed),
+especially while draining a backlog after any bot downtime. An interval trigger is
+re-armed by YAGPDB itself and can't be dropped, so the sweep is self-healing. It
+also makes the pending set visible as `gatePending` rows you can inspect.
+
+Costs: no message-trigger slots; the join hook is 1 db write; each sweep run uses
+~3 fixed db ops + up to $opBudget deletions (well under the free-tier 10).
+
+
+BEFORE YOU START — WHAT TO COLLECT
+----------------------------------
+Developer Mode ON (User Settings → Advanced → Developer Mode), then Copy ID for:
+
+  ROLES  (already filled into newbie_gate.go for RPC — verify they're right)
+    • newbie role                 (REQUIRED)
+    • age-please role             (REQUIRED — worn at the age gate)
+    • rules-please role           (REQUIRED — worn at the rules gate)
+                                  Both "waiting" tags must be named, or a member
+                                  sitting at a gate looks like they picked a role
+                                  and is never kicked.
+    • any roles that should NOT count as "picked a role" (see $excludedRoles):
+      Server Booster, bot/level roles, event/cosmetic roles, and — your call —
+      the #get_roles mailbox status roles.
+
+  CHANNELS
+    • a quiet "run in" channel for the sweep (e.g. #bot_spam — nothing is posted
+      there; interval commands just need a channel to run in)
+    • #getting_started (where the daily reminder posts; used by newbie_reminder)
+
+  KICK PREREQUISITES (kicking is on by default)
+    • Dashboard → Moderation: module enabled, and the "Kick" command enabled.
+    • The bot needs "Kick Members", and the YAGPDB bot role must sit ABOVE the
+      roles of the people it will kick (Server Settings → Roles).
+    (The kick runs YAGPDB's own Kick command via execAdmin — same requirements as
+     using -kick by hand.)
+
+
+STEP 1 — CREATE THE SWEEP
+-------------------------
+1. Dashboard → Custom Commands → New.
+2. Trigger type: Minute Interval. Interval: 30 (every 30 min; min allowed is 5).
+3. Channel: #bot_spam (the "run in" channel; nothing is posted there).
+4. Paste ALL of newbie_gate.go.
+5. Save.
+
+
+STEP 2 — CONFIGURE THE SWEEP
+----------------------------
+Edit the CONFIG block at the top of newbie_gate.go and re-save. For RPC the role
+IDs are already filled in — confirm them:
+
+  $newbieRole       456657052136243210   REQUIRED
+  $agePleaseRole    735544386678554738   REQUIRED (worn at the age gate)
+  $rulesPleaseRole  634585076524646401   REQUIRED (worn at the rules gate)
+  $excludedRoles    (cslice ...) role IDs that don't count as a real role, or (cslice)
+
+  $kickSeconds      86400 (24h)   kick if still no newbie by this age
+  $newbieFalloff    604800 (7d)   newbie tag auto-removal
+  $enableKick       true = kick at 24h without newbie; false = never kick
+  $kickReason       what shows in the mod-log on a kick
+
+  Per-run limits (leave the defaults unless you know why):
+  $pageSize   50   members inspected per run
+  $opBudget   6    db deletions/run (keep ≤ 7 so total db ops stay under 10)
+  $kickBudget 3    kicks/run (bounds mod actions; a backlog drains at this rate)
+
+Coverage math: at $pageSize 50 and a 30-min interval the sweep inspects 100
+members/hour. If your pending set is under ~50, every member is checked every run
+(so kicks land within ~30 min of their 24h mark). Bigger backlogs just take a few
+laps — well inside the 24h/7d windows.
+
+
+STEP 3 — INSTALL THE JOIN HOOK
+------------------------------
+1. Dashboard → Core / General → General settings → JOIN MESSAGE.
+2. Paste join_message.go at the TOP of the Join message (welcome text BELOW it).
+3. (Optional) $agePleaseRole + $assignAgePlease — ONLY if age-please isn't already
+   auto-assigned by Autorole; otherwise leave $assignAgePlease false.
+4. Enable "Join message" and set a Join message CHANNEL (any channel — required
+   even though nothing is posted).
+5. Save.
+
+
+STEP 4 — INSTALL THE DAILY REMINDERS (the two cohort pings)
+-----------------------------------------------------------
+One interval command that posts BOTH daily reminders, deleting + reposting each so
+the channel never fills up:
+  • message 1 → pings @newbie ("pick your roles")
+  • message 2 → pings @age-please + @rules-please ("stuck at the gates, 24h or kick")
+
+1. Dashboard → Custom Commands → New. Trigger: Minute Interval, Interval 1440
+   (once a day; 720 for twice). Channel: #getting_started.
+2. Paste ALL of newbie_reminder.go.
+3. Config: $channel (#getting_started, REQUIRED), $newbieRole, $getRolesChannel,
+   $introChannel, $agePleaseRole, $rulesPleaseRole, and the $msg1 / $msg2 text.
+4. Make sure the bot can mention all three roles (each set "Allow anyone to
+   @mention this role", or give the bot "Mention @everyone, @here, and All Roles").
+5. Save. First reminders post one interval (~24h) after enabling; post by hand now
+   if you want them out immediately.
+
+
+STEP 5 — VERIFY (on a test server)
+----------------------------------
+Don't wait 24h/7d. Install lifetest.go as a Command CC named "lifetest" and set
+its $sweepCC to the newbie_gate command id. It injects a `gatePending` row for you
+with a fake join age, resets the cursor, and runs the sweep once — so you see the
+outcome immediately with the REAL timers. Set the roles you're holding, then:
+
+    -lifetest              (as-if joined now)      newbie + a role → newbie removed
+                                                   newbie only     → nothing yet
+    -lifetest 200          (as-if joined 200h ago) newbie only     → fall-off drop
+    -lifetest 25           (as-if joined 25h ago)  age-please/rules-please only
+                           (no newbie) → KICKED. Run this from a low-role test
+                           account (you can't kick yourself if you own the server).
+
+Also confirm the plumbing: after a real join, Dashboard → Database should show a
+`gatePending` row for that member; the sweep command page shows its last-run time.
+
+Tips:
+  • If the kick doesn't happen, it's almost always the kick prerequisites — Kick
+    command enabled, bot Kick permission, bot role above the target. The command
+    error log (on the command page) will say why.
+  • Cleanup: delete the lifetest command, and delete any stray `gatePending` row it
+    left for you (Dashboard → Database).
+
+
+THINGS WORTH KNOWING
+--------------------
+• EXISTING MEMBERS aren't retroactively enrolled — only joins from install day on
+  get a `gatePending` row. Do your manual pass a couple more times while the
+  current backlog drains (they also clear themselves as they pick roles).
+
+• "REAL ROLE" is any role that isn't newbie, age-please, rules-please, or in
+  $excludedRoles. So mailbox status roles from #get_roles WILL count as "picked a
+  role" unless you add them to $excludedRoles.
+
+• GATE-STUCK MEMBERS ARE REMINDED before the kick by message 2 of newbie_reminder
+  (the daily @age-please + @rules-please ping), not by the sweep.
+
+• KICK PACING: at most $kickBudget kicks per run. A big backlog (e.g. after a raid
+  or a long outage) drains at that rate rather than mass-kicking in one run.
+
+• DEBUGGABLE: the pending set is just `gatePending` rows in Dashboard → Database.
+  A member stuck there with a broken kick usually means the kick prerequisites
+  aren't met (bot role below them, etc.).
+
+• DISABLE KICKS: set $enableKick false and nobody is kicked; gate-stuck rows are
+  dropped after the 7-day window so the list can't grow forever.
+
+
+UNINSTALLING
+------------
+1. Custom Commands → delete/disable "newbie_gate" (the sweep) AND "newbie_reminder".
+2. Core / General → Join message → remove the pasted join_message.go block.
+3. Database → delete: all "gatePending" rows, "gateSweepCursor" (owner 0), and the
+   reminder's "newbieReminderMsg" / "gateReminderMsg" rows (owner 0).

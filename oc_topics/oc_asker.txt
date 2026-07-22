@@ -1,0 +1,5 @@
+{{/* OC topic picker — the /octopic command. Reads the single DB entry seeded
+     by oc_seeder.txt (key "ocquestions", owner 0) — SEPARATE from the "topic",
+     "rpquestions", and "wbquestions" keys, so the lists never mix. One DB call. */}}
+{{ $q := (dbGet 0 "ocquestions").Value }}
+{{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No OC topics loaded yet.{{ end }}

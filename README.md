@@ -129,6 +129,32 @@ or **looking | dms open** within the window is how a member keeps their ad(s).
 (resolved with `getMessage`), and the recheck is the command scheduling itself
 forward via `scheduleUniqueCC`.
 
+### 🚪 Newbie gate / onboarding lifecycle — [newbie_gate](newbie_gate/)
+
+Automates the daily new-member routine. A single interval command
+(`newbie_reminder`) posts **two once-a-day cohort pings** in #getting_started,
+deleting + reposting each so the channel never fills: message 1 pings **@newbie**
+("pick your roles"), message 2 pings the two gate tags **@age-please +
+@rules-please** ("you're stuck at the entry gates — finish within 24h or you're
+kicked"). Because anyone who's moved on has already lost the pinged role, each
+message only reaches the people it's for. The kick / fall-off / graduation are
+`newbie_gate`'s job: a member **in the server 24h+ who still has no newbie role is
+kicked**; anyone who has the newbie role is never kicked, and their newbie role
+**auto-falls-off at 7 days**; and the moment a member **picks any role** that isn't
+a gate tag (newbie / age-please / rules-please) or excluded, the newbie role is
+removed — so both of the old manual removal rules ("they chose roles" and "they've
+been here a week") happen on their own. Mechanically it's a **list + sweep**: the
+**join message** writes one `gatePending` DB row per joiner (there's no member-join
+CC trigger, and templates can't enumerate members), and a single **minute-interval**
+command pages that list with `dbTopEntries` behind a rotating cursor — the exact
+`post_expiry` pattern — reading each member's live roles and acting. This is chosen
+over per-member `scheduleUniqueCC` jobs deliberately: YAGPDB silently drops delayed
+CC runs over its ~6/min-per-channel rate limit (which would strand a member during
+any post-downtime backlog), whereas an interval trigger is re-armed by YAGPDB and
+can't be dropped. The kick runs YAGPDB's own Kick command through `execAdmin`. The
+two "waiting" gate tags are named only so they're excluded from the "real role"
+test; kick and graduation key off the newbie role.
+
 ### ⏳ Post expiry — [post_expiry](post_expiry/)
 
 Old posts delete themselves: adverts and member intros after **60 days**,
@@ -150,6 +176,32 @@ stays inside the free-tier DB-op caps.
 Validates posts in the member-introductions channel: enforces the character
 limit and allows only one intro per member, DMing the author and removing the
 post when either rule is broken.
+
+### 🎯 Participation points — [participation_points](participation_points/)
+
+Awards members monthly points for taking part: any **attachment** scores 5, a
+**text** post scores 1 (values configurable; an attachment wins when a post has
+both), with a per-member cooldown so nobody farms points by spamming messages.
+The earner is a `([\s\S]*)` command **restricted to the participation/event
+channels** — deliberately kept out of the advert and #rule_infractions channels,
+which are already at 2 of their 3 message-trigger slots (and since regex commands
+are lowest priority, the earner would be the one silently dropped there).
+**Monthly reset is free:** scores live under a per-month key (`pts-YYYY-MM`), so
+the leaderboard clears itself when the month rolls over - no reset job, no
+interval slot. Everything else hangs off one slash command, **`/points`**, using
+normal options instead of subcommands: blank action checks points privately,
+`action:leaders` shows the board, and `month:YYYY-MM` looks at a past month.
+Staff add or remove with `action:adjust/add/remove user:@member amount:<value>`;
+those staff actions are gated *inside* the command so normal members can still
+use lookups, and every change can log to the general-logs channel. Staff can also
+run **`action:raffle`**: a mathematically exact weighted lottery where each point
+is one ticket (90 tickets in a 1000-ticket pool => 9% odds), which pages through
+every ticket-holder, draws one winner by roulette-wheel selection, pings them,
+and logs the result. It defaults to the **previous, completed month** (pass
+`month:YYYY-MM` to override) so you're never drawing from a partial one. An
+optional daily **interval** command prunes buckets older than a few months.
+Everything stays inside the free-tier DB-op caps (~3 ops per earning post, ≤10 per
+raffle).
 
 ## 🧭 Design
 
@@ -248,9 +300,14 @@ dashboard → **Custom Commands** and:
    - `infraction_recheck`
    - the nickname normalizer (and `nametest`)
    - `get_roles_dms_closed`
+   - the newbie gate ([newbie_gate](newbie_gate/)) — delete the `newbie_gate`
+     and `newbie_reminder` commands and remove the join-message block
    - the member-intros fix
    - the two post-expiry sweepers and the sticky's ledger additions
      ([post_expiry](post_expiry/))
+   - the participation-points commands (`points_earn`, `/points`, and the
+      optional cleanup interval)
+     ([participation_points](participation_points/))
 
 2. **Re-enable the three original advert-moderator commands.** These are the ones
    the consolidated commands replaced, and they sit at the **top of the command

@@ -1,0 +1,203 @@
+{{/* OC topics seeder — run ONCE to load the original-character questions into
+     the "ocquestions" DB entry (owner 0). Like rp_seeder it OVERWRITES the key
+     in one shot, so it's safe to re-run: it always leaves exactly this list,
+     never duplicates. All fit in one command well under the 10,000-char cap.
+     Delete this command after seeding — the data stays in the DB. */}}
+{{ $slice := cslice
+  `What is your OC's favorite childhood memory?`
+  `Where is your OC's ideal vacation spot?`
+  `What is your OC's favorite dish?`
+  `What was an event your OC will never forget?`
+  `How do you keep track of your OCs?`
+  `Who was your first OC?`
+  `How do you decide personality traits for your OC?`
+  `How do you connect your OCs' background to their personality?`
+  `What are some tools you use to develop your OCs?`
+  `What is your OC's zodiac sign?`
+  `What is your OC's biggest fear, and do they admit to it?`
+  `What song would play during your OC's introduction scene?`
+  `What is your OC's most treasured possession?`
+  `Is your OC a morning person or a night owl?`
+  `What smell instantly reminds your OC of home?`
+  `How does your OC act when they're nervous?`
+  `What is a secret your OC has never told anyone?`
+  `How does your OC celebrate their birthday?`
+  `Who does your OC trust the most, and why?`
+  `What would your OC do with a completely free afternoon?`
+  `What compliment would mean the most to your OC?`
+  `If your OC could change one thing about their past, would they?`
+  `Does your OC talk with their hands?`
+  `What is your OC's worst habit?`
+  `How does your OC react when they're embarrassed?`
+  `What does your OC do when they can't sleep?`
+  `Does your OC have any superstitions? If so, what are they?`
+  `Is your OC organized or messy?`
+  `Does your OC have any nervous tics?`
+  `Is your OC punctual, always late, or somewhere in between?`
+  `What is your OC's love language?`
+  `Is your OC a cat person or a dog person?`
+  `Is your OC allergic to anything?`
+  `What is your OC's dream for the future?`
+  `Did/does your OC excel in school?`
+  `Can your OC sing, or does their voice break glass?`
+  `What drink does your OC order with dinner at a restaurant?`
+  `Is your OC a world traveler, a homebody, or something in between?`
+  `Does your OC have a good sense of rhythm?`
+  `Does your OC have a special diet?`
+  `Would your OC be the strict parent or the fun parent, if they ever had kids?`
+  `What is your OC's greatest fear?`
+  `What was your OC's favorite toy as a child?`
+  `Does your OC prefer a certain season?`
+  `Does your OC always order the same thing at restaurants, or try new dishes?`
+  `Does your OC have a guilty pleasure?`
+  `Would your OC survive a zombie apocalypse?`
+  `At social gatherings, would your OC be talkative, or a wallflower?`
+  `What is your OC's favorite season, and what do they do during it?`
+  `What kind of weather matches your OC's personality?`
+  `What is your OC's dream job, regardless of what they actually do?`
+  `How does your OC handle being angry, e.g. explosive, quiet, or avoidant?`
+  `What habit does your OC have that annoys others?`
+  `What does your OC's ideal home look like?`
+  `How did you come up with your OC's name?`
+  `Do you design appearance first or personality first when you make an OC?`
+  `Which of your OCs is the most like you?`
+  `Which OC changed the most from their original concept?`
+  `Do you make playlists or moodboards for your OCs?`
+  `Do all your OCs exist in the same universe? If not, what universes do they hail from?`
+  `Which OC was the hardest to develop, and why?`
+  `Have you ever retired or scrapped an OC?`
+  `How do you decide an OC's flaws?`
+  `To what degree do you plan backstories in advance or discover them as you write?`
+  `Do you have more than one significantly different version of the same OC? How are they different?`
+  `Are there any consistent motifs associated with your OC?`
+  `Where do you like to find face claims for your OCs?`
+  `What's an OC trope you'll never get tired of?`
+  `Have you ever created an OC because of a dream?`
+  `Do you build your OCs from a personality first, or an aesthetic/vibe first?`
+  `What's the oldest OC you still actively write?`
+  `Cringe confession time: what was your very first OC like?`
+  `If your OC met you, what would they think?`
+  `Your OC is suddenly in a coffee shop AU. What do they order?`
+  `Which of your OCs would survive a horror movie, and which one dies first?`
+  `If your OC had a theme song, what would it be?`
+  `How do you get into the headspace of a character who processes the world very differently from you?`
+  `What's a small, seemingly insignificant character choice that ended up defining their whole character for the rest of the rp?`
+  `How do you name your characters? Do names carry hidden meaning or just sound right?`
+  `How would they handle a breakup with a significant other? How would they cope?`
+  `Sweet, savory, or spicy: what does your OC crave most?`
+  `What food would your OC never touch, no matter how hungry they were?`
+  `Can your OC cook, and would anyone willingly eat what they make?`
+  `What's your OC's comfort meal after the worst day of their life?`
+  `What music would be on your OC's playlist, and what would they deny listening to?`
+  `What's your OC's favorite color, and does it show up in what they wear?`
+  `Does your OC have a favorite book, story, or tale from their world?`
+  `What scent does your OC love? Which one can they not stand?`
+  `What game (cards, sports, tavern games, video games) would your OC dominate at?`
+  `What's your OC's idea of a perfect meal: fine dining, street food, or home cooking?`
+  `How long does your OC take to get ready in the morning?`
+  `Does your OC have any scars, tattoos, or marks with a story behind them?`
+  `What does your OC's everyday outfit say about them?`
+  `Does your OC care what others think about how they look?`
+  `What would your OC wear to a formal event, and would they enjoy a second of it?`
+  `Does your OC take after one parent more than the other, and how do they feel about that?`
+  `If your OC could change one thing about their appearance, what would it be?`
+  `What's the first thing people notice about your OC?`
+  `How does your OC stand or sit when they think no one's watching?`
+  `What's something your OC does that they'd be mortified to learn others have noticed?`
+  `Where does your OC's mind wander when they're bored?`
+  `How does your OC handle waiting: patiently, pacing, or finding trouble?`
+  `Does your OC snore, steal blankets, or sleep like the dead?`
+  `What makes your OC laugh until they can't breathe?`
+  `What's guaranteed to make your OC cry, even if they'd never admit it?`
+  `How does your OC apologize... if they do at all?`
+  `What does your OC do when they're truly, deeply happy?`
+  `How does your OC grieve?`
+  `What lie does your OC tell themselves?`
+  `What compliment would make your OC deeply uncomfortable?`
+  `What emotion does your OC struggle most to express?`
+  `When your OC is overwhelmed, do they seek people out or disappear?`
+  `What's the fastest way to earn your OC's forgiveness, and is anything unforgivable to them?`
+  `What does your OC daydream about?`
+  `What's your OC's defense mechanism: humor, anger, walls, or charm?`
+  `What would break your OC completely?`
+  `What keeps your OC going on their worst days?`
+  `How differently does your OC treat strangers versus close friends?`
+  `Is your OC a good liar, and do they lie often?`
+  `What's your OC's tell when they are lying?`
+  `How does your OC flirt: smoothly, disastrously, or not at all?`
+  `Is your OC the mom friend, the chaos friend, the quiet friend, or the therapist friend?`
+  `What's your OC's relationship with their family like?`
+  `Does your OC make friends easily, or is their circle small and hard-won?`
+  `What kind of person instantly gets on your OC's nerves?`
+  `What would your OC's exes say about them?`
+  `How does your OC comfort someone who's crying?`
+  `Would your OC rather be respected or loved?`
+  `Who knows your OC best, and does your OC realize it?`
+  `Does your OC believe in soulmates?`
+  `What line would your OC never cross, even to save themselves?`
+  `Would your OC steal to survive? To protect someone? Just because?`
+  `What does your OC believe in: gods, fate, luck, or nothing at all?`
+  `What moral gray area has your OC convinced themselves is perfectly fine?`
+  `Does your OC believe people can change?`
+  `What injustice makes your OC's blood boil?`
+  `Would your OC sacrifice one stranger to save five? What about one loved one to save a hundred?`
+  `What does your OC think is their own worst quality, and are they right?`
+  `What's your OC's most controversial opinion, by their world's standards?`
+  `What promise has your OC never broken?`
+  `What's a skill your OC has that surprises people?`
+  `What's something simple your OC is hilariously bad at?`
+  `Could your OC survive a week alone in the wilderness?`
+  `In a bar fight, is your OC the instigator, the peacemaker, the first one out the door, or the one filming it?`
+  `What subject could your OC lecture about for an hour, completely unprompted?`
+  `Is your OC book-smart, street-smart, people-smart, or just lucky?`
+  `Your OC wins the lottery (or stumbles on a dragon's hoard). What's the first thing they do?`
+  `Your OC has 24 hours left to live. How do they spend it?`
+  `Your OC finds a wallet full of cash on the ground. What happens next?`
+  `Someone insults your OC's best friend right in front of them. What happens?`
+  `Your OC gets one question answered truthfully by anyone, living or dead. What do they ask?`
+  `If your OC were arrested, what would it most likely be for?`
+  `Your OC is handed a small child to watch for an hour. How does that go?`
+  `What would your OC do if they came face to face with their younger self?`
+  `Your OC in a haunted house: the skeptic, the screamer, or the one trying to befriend the ghost?`
+  `Your OC gets a letter from their worst enemy asking to meet. Do they go?`
+  `If your OC existed in our modern world, what would their job and hobbies be?`
+  `Your OC has to give a wedding toast. How does it go?`
+  `What was your OC like at age ten?`
+  `What would retirement look like for your OC, if they live that long?`
+  `What's a "first" your OC remembers vividly: first kiss, first fight, first loss?`
+  `If your OC wrote a memoir, what would the title be?`
+  `What age does your OC feel on the inside? Why?`
+  `What's something your OC lost that they'd give anything to get back?`
+  `What does your OC consider their greatest achievement?`
+  `Does your OC want to be remembered? For what?`
+  `What's the worst thing your OC has ever done, and do they regret it?`
+  `What rumor about your OC is completely false, and which one is embarrassingly true?`
+  `What would your OC's last words be, if they got to choose them?`
+  `What's in your OC's pockets or bag right now?`
+  `How does your OC handle being sick: dramatics, denial, or actually resting?`
+  `What's your OC's relationship with money: saver, spender, or "what's a budget"?`
+  `What's your OC's biggest pet peeve?`
+  `What's your OC's favorite holiday, and how do they celebrate it?`
+  `Would your OC rather be too hot or too cold?`
+  `Truth or dare: which does your OC always pick, and why?`
+  `Leader, right hand, lone wolf, or wildcard: where does your OC land in a team?`
+  `Would your OC rather lose a fight in public or win one by cheating?`
+  `Which OC is your comfort character, the one you write when you need an easy day?`
+  `Which of your OCs would you least want to be stuck in an elevator with?`
+  `Which of your OCs would you actually be friends with?`
+  `If all your OCs met, which two would get along instantly, and which two should never be in the same room?`
+  `How many OCs do you have in total? Be honest, count the abandoned ones.`
+  `Have you ever borrowed a trait from someone you know in real life for an OC?`
+  `Do any of your OCs share your flaws?`
+  `Which OC's backstory hurt the most to write?`
+  `What's the fastest an OC concept has ever come together for you?`
+  `Do you write drabbles or side stories for your OCs outside of RP posts?`
+  `Which OC would forgive you for everything you've put them through, and which absolutely would not?`
+  `Do you ever dream as your OCs?`
+  `What OC concept is sitting in your drafts, waiting for the right story?`
+  `Do you age your OCs up or down for different stories?`
+  `How do you build an OC's voice: speech patterns, vocabulary, verbal tics? If yes, examples please!`
+  `What animal would your OC be, and would they be offended by your choice?`
+}}
+{{ dbSet 0 "ocquestions" $slice }}
+Loaded OC topics. Total: {{ len $slice }}

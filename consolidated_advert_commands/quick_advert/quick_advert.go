@@ -139,12 +139,16 @@
   {{ $tags = $tags.Append "image" }}
 {{ end }}
 
-{{- /* --- ADVISORY: no headers in adverts (general rule; a #/##/### line with
-     nothing but trailing whitespace after it counts too — Discord renders the
-     NEXT line as its heading text) --- */ -}}
+{{- /* --- ADVISORY: no headers in adverts (general rule). Discord's heading
+     rule is looser than a "#"-prefix test: leading spaces still render, any
+     whitespace may follow the #s, and headings render INSIDE blockquotes
+     ("> # TITLE" — an ad evaded the group check that way). Strip one level of
+     quote markup per line (quotes don't nest, and ">>> " doesn't need the
+     space), then match 1-3 #s + whitespace + text; a bare #/##/### marker
+     counts too — Discord renders the NEXT line as its heading text. --- */ -}}
 {{ $hasHeader := false }}
 {{ range (split .Message.Content "\n") }}
-  {{ if or (hasPrefix . "# ") (hasPrefix . "## ") (hasPrefix . "### ") (and (hasPrefix . "#") (or (eq (trimSpace .) "#") (eq (trimSpace .) "##") (eq (trimSpace .) "###"))) }}{{ $hasHeader = true }}{{ end }}
+  {{ if reFind "^ *#{1,3}(?:\\s+\\S.*?)?\\s*$" (reReplace "^ *(?:>>>\\s*|>\\s+)" . "") }}{{ $hasHeader = true }}{{ end }}
 {{ end }}
 {{ if $hasHeader }}
   {{ $issues = $issues.Append "Headers aren't allowed in the quick search channels. You're welcome to use regular **bold** instead." }}

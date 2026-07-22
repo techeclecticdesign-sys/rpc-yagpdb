@@ -113,21 +113,24 @@
 {{ $tags := cslice }}
 
 {{- /* --- ADVISORY: group header rules (one header line, within its cap).
-     A #/##/### line with nothing but trailing whitespace after it is a header
-     too — Discord renders the NEXT line as its heading text, so stitch them
-     together for the count and cap checks. Marker-only test runs first: "# "
-     matches the plain-header prefix too but must be stitched, not measured as
-     an empty header. --- */ -}}
+     Discord's heading rule is looser than a "#"-prefix test: leading spaces
+     still render, any whitespace may follow the #s, and headings render INSIDE
+     blockquotes ("> # TITLE" — an ad evaded this check that way). Strip one
+     level of quote markup per line (quotes don't nest, and ">>> " doesn't need
+     the space), then match 1-3 #s + whitespace + text. A marker with nothing
+     after it ("#"/"##"/"###") makes Discord render the NEXT line as the
+     heading text, so stitch them together for the count and cap checks. --- */ -}}
 {{ $headers := cslice }}
 {{ $lines := split .Message.Content "\n" }}
 {{ range $i, $line := $lines }}
-  {{ $t := trimSpace $line }}
-  {{ if and (hasPrefix $line "#") (or (eq $t "#") (eq $t "##") (eq $t "###")) }}
-    {{ $next := "" }}
-    {{ if lt (add $i 1) (len $lines) }}{{ $next = index $lines (add $i 1) }}{{ end }}
-    {{ if $next }}{{ $headers = $headers.Append (printf "%s %s" $t $next) }}{{ end }}
-  {{ else if or (hasPrefix $line "# ") (hasPrefix $line "## ") (hasPrefix $line "### ") }}
-    {{ $headers = $headers.Append $line }}
+  {{ $s := reReplace "^ *(?:>>>\\s*|>\\s+)" $line "" }}
+  {{ $m := reFindAllSubmatches "^ *(#{1,3})(?:\\s+(\\S.*?))?\\s*$" $s }}
+  {{ if $m }}
+    {{ $htext := index (index $m 0) 2 }}
+    {{ if not $htext }}
+      {{ if lt (add $i 1) (len $lines) }}{{ $htext = trimSpace (reReplace "^ *(?:>>>\\s*|>\\s+)" (index $lines (add $i 1)) "") }}{{ end }}
+    {{ end }}
+    {{ if $htext }}{{ $headers = $headers.Append (printf "%s %s" (index (index $m 0) 1) $htext) }}{{ end }}
   {{ end }}
 {{ end }}
 {{ $tooMany := gt (len $headers) 1 }}

@@ -1,0 +1,76 @@
+========================================================================
+ OC TOPICS BOT — /octopic  (original-character companion to /topic)
+========================================================================
+
+WHAT THIS IS
+  A random-question command for original-character (OC) prompts. Same mechanism
+  as the RP topic bot in ../rp_topics/ — the questions are stored as ONE database
+  cslice and a tiny command picks one at random — but under its OWN database key
+  ("ocquestions"), so it never mixes with the generic "questions", the RP
+  "rpquestions", or the worldbuilding "wbquestions" lists. Any one can be
+  reseeded without touching the others.
+
+  Permanent cost: 1 custom command + 1 database entry (owner 0, key
+  "ocquestions"). Seeding reuses a throwaway command slot you delete afterward.
+
+------------------------------------------------------------------------
+ FILES
+------------------------------------------------------------------------
+  oc_seeder.txt ... one-time loader; writes all questions to "ocquestions".
+                    Overwrites (idempotent) — safe to run more than once.
+  oc_asker.txt .... the permanent /octopic picker.
+
+------------------------------------------------------------------------
+ STEP 1 — SEED THE DATABASE (one time)
+------------------------------------------------------------------------
+  1. Create a new Custom Command.
+       Trigger type: Command
+       Trigger:      -ocseed          (temporary; anything works)
+  2. Paste the contents of oc_seeder.txt as the response. Save.
+  3. Run  -ocseed  in your server. It replies: "Loaded OC topics. Total: N".
+  4. DELETE the -ocseed command. The data stays in the database.
+
+  This seeder OVERWRITES rather than appends, so running it twice is harmless —
+  you always end up with exactly this list.
+
+------------------------------------------------------------------------
+ STEP 2 — CREATE THE PICKER (permanent)
+------------------------------------------------------------------------
+  Create a new Custom Command and paste oc_asker.txt as the response.
+
+  Pick ONE trigger:
+   * On demand:  Trigger type = Command,  Trigger = octopic
+                 -> users type  -octopic  for a random OC question.
+   * Automatic:  Trigger type = Interval, every N minutes/hours, set the
+                 target channel -> the bot posts one on its own.
+
+  No built-in "octopic" exists, so nothing conflicts.
+
+  OC-SPECIFIC CHANNELS: to keep this out of unrelated channels, restrict the
+  command to your OC channels on its dashboard page (Custom Command ->
+  Restrictions -> whitelist the channels).
+
+------------------------------------------------------------------------
+ HOW THE PICKER WORKS (oc_asker.txt)
+------------------------------------------------------------------------
+  {{ $q := (dbGet 0 "ocquestions").Value }}
+  {{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No OC topics loaded yet.{{ end }}
+
+  - dbGet 0 "ocquestions"  reads the stored cslice (1 DB call).
+  - randInt (len $q)       returns 0 .. len-1.
+  - index $q N             pulls that question out.
+
+------------------------------------------------------------------------
+ EDITING THE LIST LATER
+------------------------------------------------------------------------
+  Easiest: edit oc_seeder.txt (add/remove backtick lines), then re-run the
+  -ocseed command once — it overwrites the key with the new list.
+
+  To append a few without re-listing everything, make a one-off command:
+    {{ $s := (dbGet 0 "ocquestions").Value }}
+    {{ $s = $s.AppendSlice (cslice `New OC question one?` `New OC question two?`) }}
+    {{ dbSet 0 "ocquestions" $s }}
+    Total now: {{ len $s }}
+
+  To wipe entirely:  {{ dbDel 0 "ocquestions" }}
+========================================================================

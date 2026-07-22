@@ -26,9 +26,12 @@
        instead of the 60-day default above. Paste every group advert channel ID
        here as strings, e.g. (cslice "123" "456"). A post whose channel is in this
        list is only swept once it passes $groupTtlSecs; every other channel still
-       uses $ttlSecs. Leave the list empty to treat all channels the same. ▼▼ */}}
+       uses $ttlSecs. Leave the list empty to treat all channels the same.
+       The quotes are LOAD-BEARING: the channel ID being checked is a string
+       sliced out of the DB key, and `in` never matches a string against a
+       bare number — unquoted IDs silently fall back to the 60-day TTL. ▼▼ */}}
 {{ $groupTtlSecs := 10368000 }}
-{{ $groupChannels := cslice }}
+{{ $groupChannels := cslice "1139250122430095440" "595369286160089109" "595369232422797327" "933517300999524372" "595369255436943458" "641842156193054739" }}
 
 {{/* ▼▼ Channel IDs (as strings) whose lastMsg_ records must NOT expire, e.g.
        (cslice "1234" "5678"). Every channel with lastMsg_ records is an advert
@@ -64,8 +67,9 @@
     {{ $cid := slice .Key 8 }}
     {{ $mid := toInt .Value }}
     {{ $postedAt := add (div (div $mid 4194304) 1000) 1420070400 }}
-    {{/* group advert channels get the longer 120-day window */}}
-    {{ $cut := $cutoff }}{{ if in $groupChannels $cid }}{{ $cut = $groupCutoff }}{{ end }}
+    {{/* group advert channels get the longer 120-day window (checked both as
+         string and as int so a missing-quotes paste still matches) */}}
+    {{ $cut := $cutoff }}{{ if or (in $groupChannels $cid) (in $groupChannels (toInt $cid)) }}{{ $cut = $groupCutoff }}{{ end }}
     {{ if and (gt $opBudget 0) (lt $postedAt $cut) (not (in $excludeChannels $cid)) }}
       {{ deleteMessage (toInt $cid) $mid 5 }}
       {{ dbDel .UserID .Key }}

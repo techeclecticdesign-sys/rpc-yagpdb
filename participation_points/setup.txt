@@ -1,0 +1,397 @@
+PARTICIPATION POINTS - SETUP
+============================
+
+WHAT THIS DOES
+--------------
+Awards members points for taking part in chat and builds a CUMULATIVE, lifetime
+score per member — points never reset. It exposes two commands: an ephemeral
+`/points` slash command every member uses to check their own standing, and a
+staff-only `points` prefix command for lookups, manual adjustments, and tier
+management.
+
+  - posting any attachment -> 5 points   ($attachmentPoints)
+  - posting text           -> 1 point    ($textPoints)
+  - a staff award reaction -> 10 points  ($bonusPoints, optional add-on)
+
+Every point a member earns is added to one lifetime key, `pts-total`. There are
+no monthly buckets and no reset job. (A yearly reset can be added later if wanted
+— see THINGS WORTH KNOWING.)
+
+STAFF ARE EXEMPT. The earner and the bonus both skip anyone with a staff role, so
+staff never bank points and therefore never show on the board or in a tier. This
+is done at earn time on purpose — filtering staff at display time would need a
+role lookup per user and blow the free-tier DB/API budget on a top-10.
+
+TIERS. There is a named tier ladder (🐝 Busy Bee -> ... -> 👑), configured as
+name+emoji in the code. Thresholds are COMPUTED from a single number, the base:
+tier N needs base × N² points — a "quick at first, slower later" RPG curve. Staff
+change the base live with `points tiers base <n>` (stored in the DB, so both
+command files stay in sync). It defaults to 10, giving 10, 40, 90, 160, 250, 360,
+490, 640, 810, 1000. Members see their tier badge but never the raw numbers.
+
+
+THE TWO COMMANDS
+----------------
+1. `/points` -- SLASH command, everyone (points.go)
+   One optional Integer option (`start`). Always ephemeral (only the caller sees
+   it). Shows the caller's lifetime points, their leaderboard rank, a 10-row board
+   CENTRED on them (5 above, themselves, 4 below -- top 10 if they're near the
+   top), their own row flagged, their tier badge, and the full tier ladder
+   (names/emojis only, never the numbers). `/points start:24` jumps the board to
+   ranks 24-33 instead. Leave it un-restricted.
+
+     /points            -> your points + rank + board centred on you + tier
+     /points start:24   -> same card, board showing ranks 24-33
+
+2. `points` -- PREFIX command, staff only (points_staff.go)
+   Restrict it to your staff role(s) in the dashboard (see STEP 2b). First token
+   is a subcommand keyword or a member to look up. (Prefix is your server's, e.g.
+   `-`.)
+
+     points @member                look up a member
+     points view @member           explicit form of the lookup
+     points add @member 10         add points
+     points remove @member 5       remove points (floored at 0)
+     points adjust @member -5      signed adjust (+/-)
+     points set @member 20         set an exact total (0 clears them)
+     points balance                show YOUR OWN balance
+     points balance 10             adjust your own balance by +10 (or -5, etc.)
+     points list                   post the public board (top 10)
+     points list 24                post the board starting at rank 24
+     points tiers                  show the tier ladder + computed thresholds
+     points tiers base 10          set the tier base (tier N needs base × N²)
+     points tiers reset            revert the base to its default (10)
+
+Visibility:
+  - `/points` is always ephemeral.
+  - `points` replies in-channel (staff channel). The `list` board and tier
+    output are posted as embeds so mentions don't ping.
+
+Permissions:
+  - `/points` has no gate -- it only reads, and only the caller sees it.
+  - `points` has NO internal role gate. The dashboard Role restriction IS the
+    gate. Without it, any member could award themselves points or edit tiers.
+
+
+HOW IT'S BUILT
+--------------
+Install these commands:
+
+  1. points_earn.go
+     Trigger type: Regex   Trigger: ([\s\S]*)
+     Restrict it to participation channels only.
+     Silently banks points when non-staff members post.
+
+  2. points.go
+     Trigger type: Slash Command   Trigger: points
+     Description: Check your participation points.
+     The ephemeral member-facing card (points + rank + board + tier).
+
+  3. points_staff.go
+     Trigger type: Command   Trigger: points
+     Restrict to staff role(s) in the dashboard.
+     Staff lookups, add/remove/adjust/set, public board, and tier management.
+
+  4. points_bonus.go
+     Trigger type: Reaction   Restrict to participation channels only.
+     Awards bonus points when staff react with the award emoji. Optional.
+
+  5. points_badge_sweep.go
+     Trigger type: Interval, every hour. Leave "run in channel" blank.
+     Keeps the tier ROLE badges (see TIER BADGES below) in sync with points.
+     Optional -- skip it if you don't want role-icon badges at all.
+
+A slash command and a prefix command can share the name `points` -- they are
+different trigger types, so both coexist without conflict. A Reaction trigger
+fires on a reaction event, not a message, so points_bonus.go does NOT count
+against YAGPDB's "3 custom commands per message" limit that the earner shares
+with the advert / infraction regex commands.
+
+`points_slash.go` is a superseded lookup-only slash command kept only as a
+reference. Do NOT install it -- points.go owns the `/points` slash command.
+
+
+BEFORE YOU START
+----------------
+Turn on Developer Mode, then collect:
+
+  - channel IDs where posting should earn points
+  - staff role ID(s) — used BOTH to gate the staff command in the dashboard AND
+    (in $staffRoles) to exempt staff from earning
+  - general-logs / mod-log channel ID for adjustment and tier-edit audit messages
+  - point values and cooldown preferences
+  - (optional) an award emoji for the staff bonus reaction -- its name:id
+  - (optional) ten tier badge roles + their IDs (see TIER BADGES)
+
+
+STEP 1 - CREATE THE EARNER
+--------------------------
+1. Dashboard -> Custom Commands -> New.
+2. Trigger type: Regex   Trigger: ([\s\S]*)
+   Channel Restrictions: whitelist your participation channels.
+3. Paste all of points_earn.go.
+4. Edit the config block:
+   - $attachmentPoints / $textPoints / $cooldownSecs / $minChars
+   - $staffRoles -> your staff role IDs as strings (staff earn nothing). Keep
+     this list identical to $staffRoles in points_bonus.go.
+   (No tier role IDs or base default live here — this file reads them from the DB
+   keys pts-tierroles and pts-base. See TIER BADGES.)
+5. Save.
+
+
+STEP 2 - CREATE /points (member card)
+-------------------------------------
+1. Dashboard -> Custom Commands -> New.
+2. Trigger type: Slash Command   Trigger: points
+   Description: Check your participation points.
+3. Add ONE option (optional):
+   - Name: start   Type: Integer   Required: NO   (set Min value to 1 if the
+     dashboard allows it). Lets members jump the board to a rank: `/points
+     start:24` shows ranks 24–33. If you skip this option the command still works;
+     you just lose the jump-to-rank ability. By default (no option) the board is
+     centred on the caller regardless.
+4. Paste all of points.go.
+5. Config: $color and the $tiers ladder (names/emojis). The $tiers block MUST
+   match points_staff.go exactly. (No base default lives here — the tier base is
+   read from the DB key pts-base; see THE TIER BASE below.)
+6. Leave the dashboard Role restriction OFF so every member can use it.
+7. Save.
+
+
+STEP 2b - CREATE points (staff command)
+---------------------------------------
+1. Dashboard -> Custom Commands -> New.
+2. Trigger type: Command   Trigger: points
+3. Paste all of points_staff.go.
+4. Edit the config block:
+   - $logChannel -> your mod-log channel ID, or 0 to disable
+   - $tiers -> keep IDENTICAL to the $tiers block in points.go
+   (Tier role IDs are NOT set here — staff point changes badge instantly by
+   reading them from the DB key pts-tierroles. See TIER BADGES.)
+5. RESTRICT THIS COMMAND: set the dashboard Role restriction to your staff
+   role(s). This is the ONLY thing standing between members and self-awarding
+   points -- do not skip it.
+6. Save.
+
+
+STEP 2c - OPTIONAL BONUS REACTION (staff award)
+-----------------------------------------------
+Skip this if you don't want staff to hand out bonus points by reacting.
+
+First, get the award emoji (arcade's star): upload it, then type \:youremoji:
+in Discord to read its `name:id`, e.g. `pointsaward:1442331141771366513`.
+
+Then:
+1. Dashboard -> Custom Commands -> New.
+2. Trigger type: Reaction
+   Channel Restrictions: whitelist the SAME participation channels as the earner.
+3. Paste all of points_bonus.go.
+4. Edit the config block:
+   - $bonusEmoji  -> the `name:id` you copied (leave "" and it stays a no-op)
+   - $bonusPoints -> points per award (default 10)
+   - $staffRoles  -> staff role IDs as strings (grants the bonus AND exempts staff
+                     recipients). Keep identical to $staffRoles in points_earn.go.
+   - $logChannel  -> mod-log channel ID for an audit trail, or 0 to disable
+   - $announce    -> true to publicly congratulate + ping the member, false = silent
+   (No tier role IDs here — a bonus that crosses a tier badges the member instantly
+   by reading them from the DB key pts-tierroles. See TIER BADGES.)
+5. Save.
+
+Note: this command gates on $staffRoles internally, so a dashboard Role
+restriction is NOT required. One bonus per post, ever; staff can't award their
+own post; a staff member can't RECEIVE a bonus (they're exempt).
+
+
+STEP 2d - OPTIONAL BADGE SWEEP (role icons)
+-------------------------------------------
+Skip this if you're not using tier role-icon badges. Do the ONE-TIME DISCORD
+SETUP under TIER BADGES first (create/order the roles, give YAGPDB Manage Roles).
+
+1. Dashboard -> Custom Commands -> New.
+2. Trigger type: Interval -- every hour. Leave "run in channel" blank.
+   (Hourly is enough: the earner and bonus badge instantly on tier-up, so this
+   sweep only mops up demotions and base rebalances. Lower it temporarily if you
+   want faster convergence right after a big rebalance.)
+3. Paste all of points_badge_sweep.go.
+4. Edit the config block:
+   - $tierRoles -> the ten tier role IDs, tier 1 -> tier 10 (this is the ONLY
+     place they live; the sweep publishes them to pts-tierroles and every other
+     command reads them from there).
+   - $baseDefault -> the tier base DEFAULT. This is the ONLY place it's defined;
+     the sweep seeds it into pts-base, and every other command reads pts-base.
+   - $pageSize / $changeBudget -> leave the defaults unless you hit "too many
+     calls" (lower them) or want faster convergence (raise them).
+5. Save. No dashboard role restriction needed (it triggers on a timer).
+
+
+TUNING TIERS
+------------
+The tier base is a single number stored in the DB key pts-base (see THINGS WORTH
+KNOWING -> THE TIER BASE for how it's seeded). Threshold for tier N is base × N²,
+so a base of 10 gives the ladder 10, 40, 90, 160, 250, 360, 490, 640, 810, 1000 —
+fast to the first tiers, progressively slower toward the top.
+
+Tiers activate once pts-base is seeded: install the badge sweep (it seeds the
+default automatically) or run `points tiers base 10` once. Until then, `/points`
+and `points tiers` simply show no tier.
+
+To make the WHOLE ladder harder or easier, change the one base number:
+
+  points tiers base 25     -> ladder becomes 25, 100, 225, … 2500 (grindier)
+  points tiers base 5      -> ladder becomes 5, 20, 45, … 500 (faster)
+  points tiers             -> show the current ladder + thresholds
+  points tiers reset       -> clear pts-base; the sweep re-seeds $baseDefault
+
+Run `points list` first to see where people actually land, then pick a base
+whose tier 10 (base × 100) feels like a real achievement. (To change the SHAPE
+of the curve rather than its scale — e.g. steeper at the top — edit the `× N²`
+formula in points.go and points_staff.go; keep the two identical.)
+
+
+TIER BADGES (role icons next to names) -- OPTIONAL
+--------------------------------------------------
+A tier "badge" is a Discord ROLE ICON: a role whose icon is that tier's emoji.
+Discord shows the icon of a member's HIGHEST icon-bearing role next to their name
+(chat + member list). Role icons need Server Boost LEVEL 2 (you already have this
+-- e.g. the engagement role's icon). Skip this whole section to run points without
+badges; ranks/points/the `/points` card still work.
+
+ONE-TIME DISCORD SETUP
+  1. Create up to 10 roles, one per tier. They don't need any permissions.
+  2. Give each role an icon = that tier's emoji (Server Settings -> Roles ->
+     the role -> Display -> Role Icon).
+  3. Order them in the hierarchy HIGH -> LOW: Tier 10 highest ... Tier 1 lowest,
+     so a higher tier's icon wins when shown.
+  4. Move YAGPDB's own role ABOVE all ten, and make sure YAGPDB has Manage Roles.
+  5. Copy each role's ID (right-click -> Copy Role ID).
+
+WIRE UP THE ROLE IDS (ONE place)
+  - In points_badge_sweep.go set $tierRoles to the ten role IDs, tier 1 -> tier 10,
+    as strings. Any tier you don't want to badge: leave its slot "".
+  - That's it. The sweep publishes the list to the DB key pts-tierroles on every
+    run, and the earner / bonus / staff commands read it from there — so the role
+    IDs live in exactly one file (same single-source pattern as $baseDefault ->
+    pts-base). To change them later, edit them here; the change propagates on the
+    next sweep (or run the interval once to apply immediately).
+  (The display names/emojis stay in the $tiers block of points.go/points_staff.go.)
+
+HOW BADGES STAY CURRENT
+  - Instant promote: when an EARN pushes a member up a tier, points_earn.go grants
+    the new role and drops the old one right away. A staff BONUS reaction does the
+    same immediately for the rewarded member (points_bonus.go).
+  - Instant on staff edits: `points add/remove/adjust/set/balance` reconcile the
+    affected member's badge on the spot too (points_staff.go) -- both up and down,
+    so `points set @m 0` strips the badge immediately, no wait for the sweep.
+  - Reconcile sweep: points_badge_sweep.go (interval) recomputes every member's
+    tier from the LIVE base and fixes their role. This is what handles DEMOTIONS
+    (staff removed points) and REBALANCES (you changed the base) -- it never has to
+    "detect" a base change, it just makes roles match the formula each pass. After
+    a big rebalance, badges converge over a few sweep cycles (it reconciles a
+    handful of members per run to stay inside free-tier limits); bump the interval
+    down temporarily if you want it faster.
+
+Members hold exactly one tier role at a time; the sweep removes any stale ones.
+Staff are never badged (they don't earn). If you add/remove a tier or reorder
+them, update $tierRoles in points_badge_sweep.go (the one place) and re-position
+the roles.
+
+
+VERIFY
+------
+In a participation channel:
+
+  1. As a normal member, post text, then run `/points`. Confirm the reply is
+     private and shows your points, rank, a board CENTRED on you (your row flagged
+     ⬅️ you, with ranks above and below), and the tier ladder. As a mid-pack member
+     confirm you sit 6th in the window; near the top you just see the top 10. Then
+     run `/points start:5` and confirm the board jumps to ranks 5–14 instead.
+  2. Wait out the cooldown, post an attachment, run `/points` again.
+  3. As a STAFF account, post several messages, then have someone run
+     `points @you` -- confirm you have 0 points (staff earn nothing).
+  4. As staff: `points @member`, `points add @member 3`, `points remove 3`,
+     `points set @member 5`, `points set @member 0`. Then `points balance` (shows
+     your own), `points balance 10` (your balance goes up 10), `points balance -10`
+     (back down), and `points balance abc` (rejected as non-numeric).
+  5. As staff, `points list` -- board posts without pinging. Then `points list 5`
+     and confirm it starts the board at rank 5.
+  6. As staff, `points tiers`. If it says "not seeded", either the badge sweep
+     hasn't run yet or isn't installed -- run `points tiers base 10` to seed it,
+     then `points tiers` shows the ladder 10…1000. Then `points tiers base 5`
+     (ladder halves) and `/points` as a member with enough points (confirm the
+     tier reflects the new base). `points tiers base abc` and `points tiers base 0`
+     are rejected. `points tiers reset` clears the base (the sweep re-seeds it, or
+     seed again by hand).
+  7. From a NON-staff account, run `points add @yourself 100` and confirm nothing
+     happens -- proof the dashboard role restriction is in place.
+  8. (If installed) As staff, react to a MEMBER's post with the award emoji, then
+     run `/points` as that member -- confirm +$bonusPoints landed. React again;
+     confirm it does NOT award twice. React on a STAFF member's post -- confirm
+     nothing is banked. React as a NON-staff account -- confirm nothing happens.
+  9. (If badges installed) As staff, `points set @member <tier-1 threshold>` (e.g.
+     the base value). Within a sweep cycle -- or immediately if the member earns
+     once more -- confirm the member gets the tier-1 role and its icon shows next
+     to their name. Then `points set @member 0` and confirm the sweep removes it.
+     Bump the base up past a member's total and confirm the sweep demotes them.
+
+Post in a non-participation channel and confirm nothing scores.
+
+
+ONE-TIME MIGRATION (if you were running the old monthly version)
+----------------------------------------------------------------
+The old build stored per-month buckets (`pts-YYYY-MM`). This build ignores them
+and uses `pts-total`. To start clean, run this once in a throwaway command:
+
+  {{ dbDelMultiple (sdict "pattern" "pts-%") 10000 0 }}
+  {{ dbDelMultiple (sdict "pattern" "ptsCD") 10000 0 }}
+  {{ dbDelMultiple (sdict "pattern" "ptsbonus-%") 10000 0 }}
+
+Note the `%` is a SQL LIKE wildcard, so `pts-%` clears the old monthly buckets,
+`pts-total`, `pts-base`, `pts-tierroles`, and the sweeper's `pts-badgeCursor` alike
+— exactly what you want for a clean slate. Run this BEFORE you tune the tier base.
+(If you're installing fresh, skip it. pts-base and pts-tierroles re-seed on the
+next sweep run anyway.) This clears stored points only; it does NOT remove any tier
+ROLES already handed out — the badge sweep will strip those on its next pass (or
+remove the roles by hand in Discord).
+
+
+THINGS WORTH KNOWING
+--------------------
+- Anti-farm: one earn per member per $cooldownSecs.
+- Attachment means uploaded file. A pasted image link is text, not an attachment.
+- Staff never earn (both the earner and bonus check $staffRoles), so boards and
+  tiers stay staff-free with zero per-render cost.
+- Tier NAMES/EMOJIS live in the $tiers block in both points.go and points_staff.go
+  and must stay in sync. Thresholds are computed as base × N².
+- THE TIER BASE has a single source of truth: the DB key `pts-base`. The default
+  literal lives in exactly one file — $baseDefault in points_badge_sweep.go — which
+  SEEDS pts-base on its first run. Every other command (earner, /points, staff)
+  reads pts-base and hardcodes no default; before it's seeded they show no tier.
+  So either install the badge sweep (it seeds automatically), or run
+  `points tiers base <n>` once to seed it by hand. Staff change the live value any
+  time with `points tiers base <n>`; `points tiers reset` clears pts-base so the
+  sweep re-seeds $baseDefault.
+- Bonus awards are one-per-post forever (a 90-day dedupe flag, `ptsbonus-<msgID>`).
+- Departed members remain on the board with the tickets they earned.
+- DB keys use hyphens (`pts-total`, `pts-base`) on purpose. Do not switch to
+  underscores; database pattern helpers treat `_` as a wildcard.
+- Prizes (stickers, Nitro) and any "tier N raffle" are handled out of band for now
+  — the bot tracks points and tiers; it does not fulfil prizes.
+- Tier BADGES are Discord role icons (Boost Level 2). The tier role IDs ($tierRoles)
+  live in ONE place — points_badge_sweep.go — which publishes them to the DB key
+  pts-tierroles; the earner, bonus, and staff commands read them from there (single
+  source of truth, same as $baseDefault -> pts-base). All three of those paths
+  reconcile the badge instantly on a point change; the interval sweep is the safety
+  net that handles anything missed + base rebalances by reconciling from the live
+  base every pass, so it never needs to "detect" that the base changed.
+- Yearly reset: not built (staff chose to hold off). To add one later, swap the
+  `pts-total` key for a per-year key like `pts-2026` that rolls over on its own.
+
+
+UNINSTALLING
+------------
+Custom Commands -> delete the earner, both `points` commands, and the optional
+bonus + badge-sweep commands.
+
+Stored points are harmless to leave. To wipe them, run the migration block above.
+If you used badges, delete the ten tier roles in Discord too (or leave them —
+without the sweep they simply stop changing).

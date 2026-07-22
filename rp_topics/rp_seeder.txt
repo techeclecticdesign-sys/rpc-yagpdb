@@ -9,15 +9,13 @@
   `How do you like to store your OC information?`
   `Do you prefer writing protagonists, antagonists, or characters in the middle?`
   `What time of day do you RP the most?`
-  `How many open threads/RPs can you handle at once?`
+  `How many open RPs can you handle at once?`
   `What do you like to do when you're facing writer's block?`
   `Does your style lean more poetic or prosaic?`
-  `Are there any consistent motifs associated with your OC?`
   `How do you ensure that your character dialogue sounds realistic?`
   `Do you like to write from a particular lens, e.g. psychological, historical?`
   `What is a piece of media (music, art, film, etc) that has influenced your writing?`
   `What author do you consider most influential to your writing style, and why?`
-  `Where do you like to find face claims for your OCs?`
   `Do you like to listen to music while you write, what genre(s)?`
   `How do you like to collaborate with your RP partner(s)?`
   `Do you the type to jump right into a plot, or do you like to plan beforehand?`
@@ -29,36 +27,161 @@
   `What's a genre you've never written, but always wanted to try?`
   `What's one writing habit you've developed over the years?`
   `What's something about your writing that has changed over time?`
-  `What's an OC trope you'll never get tired of?`
-  `Have you ever created an OC because of a dream?`
   `What's an unusual source of inspiration you've used?`
   `What's a piece of RP advice that's stuck with you?`
   `What's one line you've written that you're especially proud of?`
-  `Do you build your OCs from a personality first, or an aesthetic/vibe first?`
-  `What's the oldest OC you still actively write?`
   `What's your favorite trope of all time?`
   `What's the hardest kind of scene for you to write?`
   `How do you handle writing accents or dialects in dialogue? Examples welcome!`
   `What's a writing habit or crutch word you're trying to break?`
   `What got you into roleplaying in the first place, and how long ago?`
-  `Cringe confession time: what was your very first OC like?`
-  `If your OC met you, what would they think?`
   `What makes you instantly excited to plot with someone?`
   `What's a green flag you look for in an RP partner?`
   `How do you feel about time skips?`
-  `Do you like plot twists sprung on you mid-thread, or do you want a heads up OOC?`
-  `How much worldbuilding do you need before you feel comfortable starting?`
+  `Do you like plot twists sprung on you mid-post, or do you want a heads up OOC?`
   `What's a setting you think is underused in RP?`
   `Do you keep maps, timelines, or lore docs for your rps?`
   `What's the longest-running RP you've ever had?`
   `If you could RP with any published author, who would it be?`
-  `Do you reread your old threads? Fondly or through your fingers?`
+  `Do you reread your old posts? Fondly or through your fingers?`
   `What snack or drink is your writing fuel?`
   `What's a compliment about your writing that stuck with you?`
   `Sun, rain, or thunderstorm: which weather makes you want to write?`
-  `Your OC is suddenly in a coffee shop AU. What do they order?`
-  `Which of your OCs would survive a horror movie, and which one dies first?`
-  `If your OC had a theme song, what would it be?`
+  `What’s something you admire in a partner’s writing that you secretly try to learn from?`
+  `How do you recharge creatively when RP feels more like a chore than a joy?`
+  `Have you ever recycled an old character into a completely new setting? How did they evolve?`
+  `What’s a song that feels like a whole RP post waiting to happen?`
+  `If your writing style were a texture, what would it be (velvet, gravel, water, static, etc…)?`
+  `What’s your favorite way to surprise your writing partner in a reply?`
+  `Do you have a signature move—a type of sentence or moment that readers would recognize as “so you”?`
+  `What’s a trope or genre you love to read but find intimidating to write?`
+  `Do you prefer long-term, slow-burn storytelling or shorter, punchier arcs?`
+  `What’s a piece of sensory detail (smell, texture, sound) you love to write into scenes?`
+  `Do you ever write non-linear scenes, flashbacks, or parallel timelines in posts?`
+  `What’s your take on fluff/angst? Do you lean toward the fluff, the angst, or both equally?`
+  `Is there a particular season or time of year that makes you feel most creative?`
+  `Do you use markdown (bold, italic, etc.) in your posts, or just straight words?`
+  `Whats your favorite way to end a pivotal post? Emotional beat, cliffhanger, a powerful line of dialogue, or etc?`
+  `What’s the most niche research rabbit hole an RP has sent you down?`
+  `How do you approach inner monologue? stream of consciousness, curated thoughts, or use sparingly?`
+  `What are some ways that practice 'show don't tell' in your writing?`
+  `What platform did you write your very first RPs on, and do you miss anything about it?`
+`What was the first fandom or genre that pulled you into roleplaying? What grabbed you about writing in that style?`
+`What would your younger self think of the way you write now? What do you think of the way your younger self wrote?`
+`What's the most embarrassing thing you remember from your early RP days, now that you can laugh about it?`
+`Have you ever taken a long break from roleplaying? What brought you back?`
+`Do you still have your very first RP saved somewhere? Would you dare to reread it?`
+`What was a specific post, roleplay, or partner that made you go "oh, THIS is what RP can be"?`
+`Do you match your partner's post length, or write however much the scene demands?`
+`How do you keep fight scenes punchy instead of play-by-play?`
+`How do you approach writing humor: one-liners, situational chaos, or dry wit?`
+`Purple prose: guilty pleasure, sworn enemy, or occasional indulgence?`
+`Do you edit as you write, or word-vomit first and clean up after?`
+`How much do you proofread before posting: a quick once-over, obsessive rereads, or send and pray?`
+`How do you like to open a brand-new post: action, atmosphere, or dialogue?`
+`How do you show the passage of time within a single post?`
+`How do you write exhaustion, drunkenness, or delirium while keeping the post readable?`
+`What's your trick for keeping long dialogue scenes from turning into floating heads in a void?`
+`Do you deliberately play with sentence length and rhythm for effect?`
+`How do you use setting and weather to mirror a scene's mood?`
+`Do you write your posts start to finish, or jump to the juicy part and backfill?`
+`How do you approach a scene where your character is completely alone?`
+`How do you decide how much ground to cover in one post before handing the reins back?`
+`How do you write silence, pauses, and the things characters don't say?`
+`How do you keep necessary exposition from becoming an info-dump?`
+`Do you read your posts aloud to check the flow?`
+`When a reply just isn't working, do you push through, scrap it and restart, or walk away for a while?`
+`Do you leave little easter eggs or callbacks to earlier scenes in your replies?`
+`Foreshadowing: carefully planted, or discovered by accident weeks later?`
+`Does your style shift depending on the partner, genre, or roleplay, or is it recognizably you everywhere?`
+`What does your first draft actually look like: polished, skeletal, or keyboard smash with vibes?`
+`Slice-of-life comfort or high-stakes drama?`
+`Happy endings, bittersweet, or full tragedy: what's your natural default?`
+`Enemies-to-lovers or friends-to-lovers? Defend your answer.`
+`For romance plots: mutual pining for fifty pages, or sparks flying from scene one?`
+`Modern, historical, fantasy, or sci-fi: which is your comfort zone and why does it suit you?`
+`Comedy or drama: which comes to you more naturally?`
+`Would you rather write the big confession, or the quiet morning after the argument?`
+`Would you rather write the epic battle, or the campfire scene the night before it?`
+`How do you feel about holiday or seasonal event arcs or posts?`
+`What's an aesthetic (cottagecore, cyberpunk, gothic, etc.) you love wrapping a story in?`
+`Do you prefer focusing on one character per post, or juggling a whole cast?`
+`Do you gravitate toward plots that feel like comfort food, or ones that scare you a little?`
+`What's a red flag that makes you quietly back away from a potential partner?`
+`When plotting, do you prefer a detailed pitch or vibes-first brainstorming?`
+`What's your ideal OOC culture: memes and keyboard smashing, cozy check-ins, or strictly roleplay plotting?`
+`How do you handle it when you and a partner want the plot to go in different directions?`
+`Do you tell your partner when their reply absolutely wrecked you (affectionately)?`
+`Have you made real, lasting friendships through roleplay?`
+`What's the kindest thing an RP partner has ever done for you?`
+`Do you prefer ships that develop naturally in-roleplay, or ones plotted from the very start?`
+`Do you celebrate milestones like roleplay anniversaries or page counts?`
+`What's something a partner can do OOC that instantly makes you feel appreciated?`
+`Do you prefer partners whose style mirrors your own, or one that contrasts with it?`
+`Where do you actually write: desk, bed, couch, or thumbs-on-phone wherever you happen to be?`
+`Do you draft in a separate doc, or type straight into the reply box like a daredevil?`
+`Do you have a pre-writing ritual: a drink, a playlist, specific lighting, a lucky blanket?`
+`How many reference tabs do you have open during a reply? Be honest.`
+`When you owe multiple replies, do you go in order or follow the inspiration?`
+`Do you save screenshots or quotes of favorite RP moments somewhere special?`
+`Do you make playlists, moodboards, or Pinterest boards for your posts?`
+`Do you ever lose track of a post you owe a partner? What do you do to avoid this?`
+`What happens to your finished or faded roleplays: archived, deleted, or forgotten?`
+`What's the weirdest situation or place you've ever written a reply?`
+`Has an RP ever made you genuinely cry, either writing it or reading a reply?`
+`What emotion do you find easiest to write, and which one fights you every time?`
+`Have you ever felt real secondhand embarrassment writing an intentionally cringe-worthy scene?`
+`What's a scene that lived rent-free in your head for days before you finally got to write it?`
+`What's the most cathartic thing you've ever written?`
+`Has roleplaying ever taught you something about yourself?`
+`Have you ever surprised yourself, with a reply going somewhere you never planned?`
+`Does your real-life mood bleed into your writing, or can you write against it?`
+`What compliment do you secretly wish someone would give your writing?`
+`What part of your craft are you actively trying to level up right now?`
+`What do you consider your greatest strength as a writer?`
+`Do you get nervous posting replies where you took a big creative swing?`
+`What's an RP moment from years ago that you still think about?`
+`What's the wildest plot twist you or a partner has ever pulled off?`
+`What's the most chaotically off-the-rails an arc or roleplay has ever gone (affectionate)?`
+`Have you ever stayed up way too late because a scene demanded to be finished?`
+`What's a scene that turned out even better than you imagined it would?`
+`What's the biggest creative risk you've taken in a post, and did it pay off?`
+`What's the longest single reply you've ever written, and do you regret nothing?`
+`Has an RP idea ever struck at the worst possible moment: in the shower, at work, at 3am?`
+`What's your most unpopular RP opinion? Gently, now.`
+`Godmodding, puppeteering or metagaming: which one tests your patience more?`
+`What's a piece of popular RP etiquette you secretly disagree with?`
+`What's a piece of common writing advice you think is overrated, or just plain wrong?`
+`What's something you wish more people understood about RP as a hobby?`
+`Is there an unspoken RP "rule" you happily break?`
+`What advice would you give someone writing their very first RP reply today?`
+`If you taught a masterclass on one single RP skill, what would it be?`
+`What's a skill roleplaying has given you that helps in real life?`
+`How do you explain your RP hobby to non-writer friends or family... if you do at all?`
+`If your writing style were a color palette, what colors are we working with?`
+`If your writing style were an instrument or music genre, what would it sound like?`
+`If your writing style were a building (cathedral, cozy cabin, brutalist tower), what's the architecture?`
+`If your writing had a scent, what would it be?`
+`Describe your current WIP replies in exactly three words each.`
+`Describe your writing style using only emojis.`
+`What would the title of your roleplaying memoir be?`
+`If your RP career had a museum exhibit, what would be in the display case?`
+`If you could bottle and sell one feeling from roleplaying, which would it be?`
+`What mythical creature best represents you as a writer?`
+`Would you rather write only dialogue or only description for an entire year?`
+`Would you rather lose every old RP log forever, or have all of them published under your real name?`
+`If you could only write one genre for the rest of your life, which one survives?`
+`A genie grants you one writing superpower: perfect pacing, endless motivation, or flawless dialogue. Which do you take?`
+`What's inspiring you creatively this week?`
+`What scene are you most excited to write next? No spoilers... or all the spoilers, we don't judge.`
+`What's your current hyperfixation, and is it feeding your writing?`
+`What's one small writing win you've had recently?`
+`What's one word to describe your creative energy this month?`
+`What's your favorite word that you never get enough chances to use?`
+`What's a word you flat-out refuse to put in your prose?`
+`What's a hobby outside of writing that secretly makes your writing better?`
+`Do you dream about your RPs, or plot them while falling asleep?`
+`What's a comfort medium between replies: games, shows, books, or endless scrolling?`
 }}
 {{ dbSet 0 "rpquestions" $slice }}
 Loaded RP topics. Total: {{ len $slice }}

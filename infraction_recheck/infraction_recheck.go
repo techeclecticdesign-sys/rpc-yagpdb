@@ -37,7 +37,7 @@
 {{/* ▼▼ The :staffapproved: emoji as name:id — added to the #rule_infractions
        ping when a post comes back clean. Leave "" to skip. Type \:staffapproved:
        in Discord to read its id. ▼▼ */}}
-{{ $staffApproved := "" }}
+{{ $staffApproved := "staffapproved:1358879847664975902" }}
 
 {{/* ▼▼ Banned words — keep identical to the three advert commands. ▼▼ */}}
 {{ $banned := cslice
@@ -64,7 +64,7 @@
   "genre_crime" "genre_cyberpunk" "genre_fantasy" "genre_historical" "genre_horror"
   "genre_modern" "genre_postapoc" "genre_sciencefiction" "genre_sliceoflife" "genre_supernatural"
   "speed_rapidfire" "speed_daily" "speed_weekly" "speed_monthly"
-  "original_chars" "canon_chars"
+  "original_chars" "canon_chars" "any_genre"
 }}
 
 {{- /* ===== fetch the post; if it's gone, so is its reaction ===== */ -}}
@@ -88,25 +88,30 @@
 {{ end }}
 
 {{/* headers — quick & 1x1 forbid any; group allows one short line.
-     A #/##/### line with nothing but trailing whitespace after it is a header
-     too — Discord renders the NEXT line as its heading text, so for group
-     stitch them together for the count/cap checks (marker-only test first:
-     "# " matches the plain-header prefix too but must be stitched). */}}
+     Discord's heading rule is looser than a "#"-prefix test: leading spaces
+     still render, any whitespace may follow the #s, and headings render INSIDE
+     blockquotes ("> # TITLE" — an ad evaded the group check that way). Strip
+     one level of quote markup per line (quotes don't nest, and ">>> " doesn't
+     need the space), then match 1-3 #s + whitespace + text. A bare #/##/###
+     marker makes Discord render the NEXT line as its heading text, so for
+     group stitch them together for the count/cap checks (matches the advert
+     commands — keep in sync). */}}
 {{ if or (eq $type "quick") (eq $type "1x1") }}
   {{ range (split $msg.Content "\n") }}
-    {{ if or (hasPrefix . "# ") (hasPrefix . "## ") (hasPrefix . "### ") (and (hasPrefix . "#") (or (eq (trimSpace .) "#") (eq (trimSpace .) "##") (eq (trimSpace .) "###"))) }}{{ $dirty = true }}{{ end }}
+    {{ if reFind "^ *#{1,3}(?:\\s+\\S.*?)?\\s*$" (reReplace "^ *(?:>>>\\s*|>\\s+)" . "") }}{{ $dirty = true }}{{ end }}
   {{ end }}
 {{ else if eq $type "group" }}
   {{ $headers := cslice }}
   {{ $lines := split $msg.Content "\n" }}
   {{ range $i, $line := $lines }}
-    {{ $t := trimSpace $line }}
-    {{ if and (hasPrefix $line "#") (or (eq $t "#") (eq $t "##") (eq $t "###")) }}
-      {{ $next := "" }}
-      {{ if lt (add $i 1) (len $lines) }}{{ $next = index $lines (add $i 1) }}{{ end }}
-      {{ if $next }}{{ $headers = $headers.Append (printf "%s %s" $t $next) }}{{ end }}
-    {{ else if or (hasPrefix $line "# ") (hasPrefix $line "## ") (hasPrefix $line "### ") }}
-      {{ $headers = $headers.Append $line }}
+    {{ $s := reReplace "^ *(?:>>>\\s*|>\\s+)" $line "" }}
+    {{ $m := reFindAllSubmatches "^ *(#{1,3})(?:\\s+(\\S.*?))?\\s*$" $s }}
+    {{ if $m }}
+      {{ $htext := index (index $m 0) 2 }}
+      {{ if not $htext }}
+        {{ if lt (add $i 1) (len $lines) }}{{ $htext = trimSpace (reReplace "^ *(?:>>>\\s*|>\\s+)" (index $lines (add $i 1)) "") }}{{ end }}
+      {{ end }}
+      {{ if $htext }}{{ $headers = $headers.Append (printf "%s %s" (index (index $m 0) 1) $htext) }}{{ end }}
     {{ end }}
   {{ end }}
   {{ if gt (len $headers) 1 }}{{ $dirty = true }}{{ end }}

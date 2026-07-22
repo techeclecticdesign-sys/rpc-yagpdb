@@ -4,8 +4,11 @@ NICKNAME NORMALIZER — SETUP
 WHAT THIS DOES
 --------------
 Runs on every message in the Age Verification channel. It looks at the poster's
-CURRENT server nickname (or their username if they have no nickname), cleans it
-up, and — if the cleaned version is different — sets it as their nickname.
+CURRENT server nickname (falling back to their global display name, then their
+username), cleans it up, and — if the cleaned version is different — sets it as
+their nickname. The display-name fallback matters: since Discord's username
+migration, "fancy font" names usually live in the global display name, not in
+a server nickname or the lowercase username handle.
 
 Cleaning steps, in order:
   1. "Fancy font" letters/digits are mapped back to plain ASCII, e.g.
