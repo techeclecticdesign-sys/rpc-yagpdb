@@ -1,6 +1,14 @@
-{{/* Worldbuilding topic picker — the /wbtopic command. Reads the single DB entry
-     seeded by wb_seeder.txt (key "wbquestions", owner 0) — SEPARATE from the
-     "topic", "rpquestions", and "ocquestions" keys, so the lists never mix.
-     One DB call. */}}
-{{ $q := (dbGet 0 "wbquestions").Value }}
-{{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No worldbuilding topics loaded yet.{{ end }}
+{{/* Sequential /wbtopic picker — walks the "wbquestions" list top-to-bottom via
+     a persisted counter ("wbquestions_idx") instead of random, so nothing
+     repeats until the whole list has been shown, then it wraps back to the top.
+     dbIncr is atomic, so simultaneous uses still advance cleanly. SEPARATE from
+     the "questions", "rpquestions", and "ocquestions" keys, so the lists never
+     mix. 2 DB ops: read the list + bump the counter. */}}
+{{- $q := (dbGet 0 "wbquestions").Value -}}
+{{- if $q -}}
+{{- $c := toInt (dbIncr 0 "wbquestions_idx" 1) -}}
+{{- $i := toInt (mod (sub $c 1) (len $q)) -}}
+{{- index $q $i -}}
+{{- else -}}
+No worldbuilding topics loaded yet.
+{{- end -}}

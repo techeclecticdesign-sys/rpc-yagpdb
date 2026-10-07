@@ -184,4 +184,5 @@
 `What's a comfort medium between replies: games, shows, books, or endless scrolling?`
 }}
 {{ dbSet 0 "rpquestions" $slice }}
-Loaded RP topics. Total: {{ len $slice }}
+{{ dbSet 0 "rpquestions_idx" 0 }}
+Loaded RP topics. Total: {{ len $slice }} (walk reset to the top)

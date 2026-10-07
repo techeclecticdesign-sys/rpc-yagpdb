@@ -3,14 +3,16 @@
 ========================================================================
 
 WHAT THIS IS
-  A second, independent random-question command for your RP channels. It's the
+  A second, independent question command for your RP channels. It's the
   same mechanism as the generic topic bot in ../random_questions/ — 54 questions
-  stored as ONE database cslice, a tiny command picks one at random — but under
-  a SEPARATE database key ("rpquestions" instead of "questions"), so the two
-  lists never mix and either can be reseeded without touching the other.
+  stored as ONE database cslice, a tiny command walks through them top-to-bottom
+  in order (no repeats until the list is exhausted) — but under a SEPARATE
+  database key ("rpquestions" instead of "questions"), so the two lists never
+  mix and either can be reseeded without touching the other.
 
-  Permanent cost: 1 custom command + 1 database entry (owner 0, key
-  "rpquestions"). Seeding reuses a throwaway command slot you delete afterward.
+  Permanent cost: 1 custom command + 2 database entries (owner 0): the list
+  ("rpquestions") and a small walk counter ("rpquestions_idx"). Seeding reuses a
+  throwaway command slot you delete afterward.
 
 ------------------------------------------------------------------------
  FILES
@@ -55,17 +57,29 @@ WHAT THIS IS
  HOW THE PICKER WORKS (rp_asker.txt)
 ------------------------------------------------------------------------
   {{ $q := (dbGet 0 "rpquestions").Value }}
-  {{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No RP topics loaded yet.{{ end }}
+  {{ $c := toInt (dbIncr 0 "rpquestions_idx" 1) }}
+  {{ $i := toInt (mod (sub $c 1) (len $q)) }}
+  {{ index $q $i }}
 
-  - dbGet 0 "rpquestions"  reads the stored cslice (1 DB call).
-  - randInt (len $q)       returns 0 .. len-1.
-  - index $q N             pulls that question out.
+  - dbGet 0 "rpquestions"          reads the stored cslice (1 DB op).
+  - dbIncr 0 "rpquestions_idx" 1   atomically bumps a persisted counter and
+                                   returns its NEW value (1, 2, 3, ...) — 1 DB op.
+  - sub $c 1                       turns that into a 0-based position for THIS call.
+  - mod ... (len $q)               wraps back to the top after the last question.
+  - toInt ...                      REQUIRED: YAGPDB math returns a float64, and
+                                   `index` refuses a float — this casts it to int.
+  - index $q $i                    pulls that question out.
+
+  Because the counter only moves forward by 1, every question is shown once
+  before any repeats — no more random duplicates. Reseeding resets the counter
+  to 0, so the walk starts again from the top of the list.
 
 ------------------------------------------------------------------------
  EDITING THE LIST LATER
 ------------------------------------------------------------------------
   Easiest: edit rp_seeder.txt (add/remove backtick lines), then re-run the
-  -rpseed command once — it overwrites the key with the new list.
+  -rpseed command once — it overwrites the key with the new list AND resets the
+  walk counter to the top.
 
   To append a few without re-listing everything, make a one-off command:
     {{ $s := (dbGet 0 "rpquestions").Value }}
@@ -73,5 +87,5 @@ WHAT THIS IS
     {{ dbSet 0 "rpquestions" $s }}
     Total now: {{ len $s }}
 
-  To wipe entirely:  {{ dbDel 0 "rpquestions" }}
+  To wipe entirely:  {{ dbDel 0 "rpquestions" }}{{ dbDel 0 "rpquestions_idx" }}
 ========================================================================

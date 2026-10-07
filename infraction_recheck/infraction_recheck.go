@@ -71,6 +71,25 @@
 {{ $msg := getMessage $d.channelID $d.msgID }}
 {{ if not $msg }}{{ return }}{{ end }}
 
+{{- /* ===== staff sign-off? A human :staffapproved: on the #rule_infractions
+       ping means a moderator reviewed this and chose to KEEP the post. Clear the
+       :staffpending: flag and stop — never auto-delete a post staff approved by
+       hand, no matter what the content checks below would say. (The bot only
+       adds :staffapproved: at a terminal stage and returns right after, so
+       seeing it here means a human put it there.) ===== */ -}}
+{{ if $staffApproved }}{{ if $d.infractionChannel }}{{ if $d.infractionMsgID }}
+  {{ $ping := getMessage $d.infractionChannel $d.infractionMsgID }}
+  {{ if $ping }}
+    {{ $apn := index (split $staffApproved ":") 0 }}
+    {{ $signed := false }}
+    {{ range $ping.Reactions }}{{ if eq .Emoji.Name $apn }}{{ $signed = true }}{{ end }}{{ end }}
+    {{ if $signed }}
+      {{ deleteAllMessageReactions $d.channelID $d.msgID $staffPending }}
+      {{ return }}
+    {{ end }}
+  {{ end }}
+{{ end }}{{ end }}{{ end }}
+
 {{ $type := $d.type }}
 {{ $dirty := false }}
 
@@ -92,24 +111,26 @@
      still render, any whitespace may follow the #s, and headings render INSIDE
      blockquotes ("> # TITLE" — an ad evaded the group check that way). Strip
      one level of quote markup per line (quotes don't nest, and ">>> " doesn't
-     need the space), then match 1-3 #s + whitespace + text. A bare #/##/###
-     marker makes Discord render the NEXT line as its heading text, so for
-     group stitch them together for the count/cap checks (matches the advert
+     need the space), then one "-# " subtext marker (a heading behind it,
+     "-# ## X", still renders), then match 1-3 #s + whitespace + text. A bare
+     #/##/### marker makes Discord render the NEXT line as its heading text, so
+     for group stitch them together for the count/cap checks (matches the advert
      commands — keep in sync). */}}
 {{ if or (eq $type "quick") (eq $type "1x1") }}
   {{ range (split $msg.Content "\n") }}
-    {{ if reFind "^ *#{1,3}(?:\\s+\\S.*?)?\\s*$" (reReplace "^ *(?:>>>\\s*|>\\s+)" . "") }}{{ $dirty = true }}{{ end }}
+    {{ if reFind "^ *#{1,3}(?:\\s+\\S.*?)?\\s*$" (reReplace "^ *-#\\s+" (reReplace "^ *(?:>>>\\s*|>\\s+)" . "") "") }}{{ $dirty = true }}{{ end }}
   {{ end }}
 {{ else if eq $type "group" }}
   {{ $headers := cslice }}
   {{ $lines := split $msg.Content "\n" }}
   {{ range $i, $line := $lines }}
     {{ $s := reReplace "^ *(?:>>>\\s*|>\\s+)" $line "" }}
+    {{ $s = reReplace "^ *-#\\s+" $s "" }}
     {{ $m := reFindAllSubmatches "^ *(#{1,3})(?:\\s+(\\S.*?))?\\s*$" $s }}
     {{ if $m }}
       {{ $htext := index (index $m 0) 2 }}
       {{ if not $htext }}
-        {{ if lt (add $i 1) (len $lines) }}{{ $htext = trimSpace (reReplace "^ *(?:>>>\\s*|>\\s+)" (index $lines (add $i 1)) "") }}{{ end }}
+        {{ if lt (add $i 1) (len $lines) }}{{ $htext = trimSpace (reReplace "^ *-#\\s+" (reReplace "^ *(?:>>>\\s*|>\\s+)" (index $lines (add $i 1)) "") "") }}{{ end }}
       {{ end }}
       {{ if $htext }}{{ $headers = $headers.Append (printf "%s %s" (index (index $m 0) 1) $htext) }}{{ end }}
     {{ end }}
@@ -120,9 +141,12 @@
     {{ $cap := 50 }}{{ $prefixLen := 2 }}
     {{ if hasPrefix $line "### " }}{{ $cap = 70 }}{{ $prefixLen = 4 }}
     {{ else if hasPrefix $line "## " }}{{ $cap = 60 }}{{ $prefixLen = 3 }}{{ end }}
-    {{- /* custom emoji <:name:id> / <a:name:id> render as one glyph — count
-         each as a single char for the cap (matches group_advert). */ -}}
-    {{ $body := reReplace "<a?:\\w+:\\d+>" (slice $line $prefixLen) "x" }}
+    {{- /* Count only what actually RENDERS toward the cap (matches group_advert):
+         • a masked link [text](url) shows just its anchor text — drop the URL;
+         • a custom emoji <:name:id> / <a:name:id> shows as one glyph — collapse
+           each to a single char. */ -}}
+    {{ $body := reReplace "\\[([^\\]]*)\\]\\([^)]*\\)" (slice $line $prefixLen) "${1}" }}
+    {{ $body = reReplace "<a?:\\w+:\\d+>" $body "x" }}
     {{ if gt (len (toRune $body)) $cap }}{{ $dirty = true }}{{ end }}
   {{ end }}
 {{ end }}
@@ -168,7 +192,8 @@
             {{ $o = reReplace "[^a-z0-9 ]+" $o " " }}
             {{ $o = reReplace "\\s+" $o " " }}
             {{ $o = trimSpace $o }}
-            {{ if eq $o $thisNorm }}{{ $dirty = true }}{{ end }}
+            {{/* only an OLDER copy (smaller id) makes THIS post dirty, so the single oldest copy is never dupe-dirty — a duplicate pair can't both self-delete, the oldest always survives */}}
+            {{ if eq $o $thisNorm }}{{ if lt (toInt .Value) (toInt $d.msgID) }}{{ $dirty = true }}{{ end }}{{ end }}
           {{ end }}
         {{ end }}
       {{ end }}
@@ -180,7 +205,9 @@
 {{ if not $dirty }}
   {{/* drop :staffpending: from the offending advert post */}}
   {{ deleteAllMessageReactions $d.channelID $d.msgID $staffPending }}
-  {{/* and mark the #rule_infractions ping itself :staffapproved: */}}
+  {{/* and mark the #rule_infractions ping itself :staffapproved:. We only reach
+       here when the ping had NO manual :staffapproved: (a human one would have
+       stopped us at the sign-off check above), so a plain add can't double up. */}}
   {{ if $staffApproved }}{{ if $d.infractionChannel }}{{ if $d.infractionMsgID }}
     {{ addMessageReactions $d.infractionChannel $d.infractionMsgID $staffApproved }}
   {{ end }}{{ end }}{{ end }}

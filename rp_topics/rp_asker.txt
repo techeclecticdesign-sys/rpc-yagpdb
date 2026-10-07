@@ -1,5 +1,14 @@
-{{/* RP topic picker — the /rptopic command. Reads the single DB entry seeded
-     by rp_seeder.txt (key "rpquestions", owner 0) — SEPARATE from the generic
-     "topic" bot's "questions" key, so the two lists never mix. One DB call. */}}
-{{ $q := (dbGet 0 "rpquestions").Value }}
-{{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No RP topics loaded yet.{{ end }}
+{{/* Sequential /rptopic picker — walks the "rpquestions" list top-to-bottom via
+     a persisted counter ("rpquestions_idx") instead of random, so nothing
+     repeats until the whole list has been shown, then it wraps back to the top.
+     dbIncr is atomic, so simultaneous uses still advance cleanly. SEPARATE from
+     the "questions", "ocquestions", and "wbquestions" keys, so the lists never
+     mix. 2 DB ops: read the list + bump the counter. */}}
+{{- $q := (dbGet 0 "rpquestions").Value -}}
+{{- if $q -}}
+{{- $c := toInt (dbIncr 0 "rpquestions_idx" 1) -}}
+{{- $i := toInt (mod (sub $c 1) (len $q)) -}}
+{{- index $q $i -}}
+{{- else -}}
+No RP topics loaded yet.
+{{- end -}}

@@ -26,8 +26,13 @@
 {{ $recheckCC := 0 }}
 
 {{/* ▼▼ Bot-spam channel ID (4th-infraction ban alert). 0 to skip. This `.*`
-       branch counts only MANUAL (human-typed) infractions; bot pings are
-       counted by the advert commands. ▼▼ */}}
+       branch counts MANUAL (human-typed) infractions; YAGPDB's own advert pings
+       are counted by the advert commands via execCC. NOTE: YAGPDB message
+       triggers ignore ALL bot-authored messages (customcommands/bot.go:
+       `if msg.Author.Bot { return true }`), so logger-bot's pings NEVER reach this
+       branch — its duplicate-server offenses are enforced by logger-bot itself but
+       are not counted here. A former U+2063 "countable marker" gate that assumed
+       otherwise was inert and has been removed. ▼▼ */}}
 {{ $botSpam := 0 }}
 {{ $infrWindowSecs := 15552000 }}{{/* 180 days */}}
 {{ $advertBanSecs := 1209600 }}{{/* 14 days */}}
@@ -45,9 +50,12 @@
   {{ $ledger = $ledger.Append (str .ExecData.infractionMsgID) }}
 {{ end }}{{ end }}
 
-{{/* Manual infraction counting (`.*` trigger, .ExecData nil). Bot pings don't
-     fire this, so the advert commands count those — no double-count. Can't edit
-     a human's message, so escalation posts as a follow-up line. */}}
+{{/* Infraction counting (`.*` trigger, .ExecData nil). Only HUMAN messages ever
+     reach here: YAGPDB message triggers skip ALL bot authors (its own advert pings
+     are counted by the advert commands via execCC; logger-bot's pings never fire
+     this trigger at all). A human staff post that mentions someone is therefore a
+     MANUAL infraction. Can't edit a human's message, so escalation posts as a
+     follow-up line. */}}
 {{ if not .ExecData }}
   {{/* every human message in the channel expires — ledger it, mentions or not */}}
   {{ $ledger = $ledger.Append (str .Message.ID) }}

@@ -49,7 +49,14 @@ At the top of the code, set:
                                  #rule_infractions ping to mark it handled. Type
                                  \:staffapproved: in Discord to read its id, then
                                  set this to "staffapproved:<id>". Leave "" to
-                                 skip the approval reaction.
+                                 skip the approval reaction. This emoji doubles as
+                                 the manual-override signal: if a staffer reacts
+                                 :staffapproved: on the ping by hand, the next
+                                 re-check clears :staffpending: from the post and
+                                 STOPS the chain — the post is never auto-deleted,
+                                 regardless of what the content checks say. (With
+                                 $staffApproved left "", there is no override
+                                 signal and the chain runs purely on content.)
     {{ $banned := cslice ... }} → identical to the three advert commands.
 
 

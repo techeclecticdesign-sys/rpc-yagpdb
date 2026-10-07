@@ -1,0 +1,52 @@
+BAN / KICK PREFIX ALIASES — SETUP
+=================================
+
+WHAT THIS IS
+------------
+Since 15 Sep 2026, YAGPDB no longer answers its BUILT-IN commands by prefix
+(>>ban, >>kick …) — only /ban, /kick or "@YAGPDB ban …". Custom commands are
+not affected, and a custom command can still call a built-in via `exec`.
+
+These two custom commands bring the old syntax back:
+
+  >>ban  <user ID or @mention> [duration] [reason] [-ddays 0-7]
+  >>kick <user ID or @mention> [reason] [-cl 1-100]
+
+  e.g.  >>ban 1444117608000520232 Ban evasion, _mrenigma
+
+They don't do any moderation logic themselves. The rest of the line is passed
+UNCHANGED to YAGPDB's real Ban/Kick command, so parsing, the mod-log entry, the
+DM to the user, and the "reason required" rules are all exactly what /ban and
+/kick do.
+
+(`>>` is your custom-command prefix — Dashboard → Core → Command settings.)
+
+
+CREATE THE COMMANDS  (do this twice: ban, then kick)
+---------------------------------------------------
+  1. Dashboard → Custom Commands → Create New.
+  2. Trigger type:  Command.
+  3. Trigger (name):  ban      (second one:  kick)
+  4. Response: paste ban.go    (second one:  kick.go)
+  5. Make sure the command is ENABLED, then Save.
+
+
+REQUIREMENTS
+------------
+  • Moderation module enabled, with the Ban and Kick commands enabled
+    (they already are if /ban and /kick work for you).
+  • PERMISSIONS: these use `exec`, which runs the command AS THE PERSON TYPING
+    it. YAGPDB's own permission check therefore still applies: only people with
+    Ban/Kick Members (or the roles set in Moderation → Ban/Kick settings) can
+    use them, and the mod log records the real moderator, not the bot.
+    Anyone else gets YAGPDB's normal "missing permissions" reply.
+    Optionally also set Custom Command → "Require roles" to your staff roles.
+  • The YAGPDB role must sit above the roles of anyone it bans/kicks.
+
+
+NOTES
+-----
+  • A reason that STARTS with something that looks like a duration
+    (e.g. "3d …") is read as the ban duration — same as the old >>ban.
+  • Anything that fails (bad user ID, can't ban an admin, etc.) is shown as
+    "Ban failed: …" / "Kick failed: …" instead of a silent error.

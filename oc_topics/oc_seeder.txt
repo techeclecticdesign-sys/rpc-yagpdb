@@ -200,4 +200,5 @@
   `What animal would your OC be, and would they be offended by your choice?`
 }}
 {{ dbSet 0 "ocquestions" $slice }}
-Loaded OC topics. Total: {{ len $slice }}
+{{ dbSet 0 "ocquestions_idx" 0 }}
+Loaded OC topics. Total: {{ len $slice }} (walk reset to the top)

@@ -24,23 +24,26 @@
      FREE-TIER SAFE via the same rotating-cursor pattern as advert_expiry: scan a
      modest page of pts-total behind a saved cursor, reconcile up to $changeBudget
      members per run (the role writes are the rate-limited part), wrap at the end.
-     Only ~4 DB ops/run (base get + cursor get + one dbTopEntries + cursor set). */}}
+     Only ~5 DB ops/run (two config publishes + cursor get + one dbTopEntries +
+     cursor set). */}}
 
 {{/* ──────────────── CONFIG ──────────────── */}}
-{{/* ▼▼ SINGLE SOURCE OF TRUTH for the tier base default. This is the ONLY place
-       the default literal lives. On the first run (or any time the DB key is
-       missing) this sweep seeds it into `pts-base`, and every OTHER command reads
-       `pts-base` — no command hardcodes a default. Staff change the LIVE value
-       with `points tiers base <n>`; to change the DEFAULT, edit this number (it
-       re-seeds only after a `points tiers reset` clears the key). ▼▼ */}}
-{{ $baseDefault := 10 }}
+{{/* ▼▼ SINGLE SOURCE OF TRUTH for the tier thresholds — the point ladder, tier 1
+       → tier 10, ascending. THIS IS THE ONLY PLACE the ladder lives. This sweep
+       publishes it to the DB key `pts-thresholds` every run, and every OTHER
+       command reads it from there (no command hardcodes thresholds) — the same
+       single-source pattern as the tier role IDs below. To recalibrate the ladder,
+       edit these ten numbers and nowhere else; the change propagates on the next
+       sweep. Keep the ORDER aligned with the $tiers names/emojis (points.go /
+       points_staff.go) and the $tierRoles below. ▼▼ */}}
+{{ $tierThresholds := cslice 200 400 800 1500 2300 3300 4500 6000 7700 10000 }}
 {{/* ▼▼ Tier BADGE role IDs, tier 1 → tier 10, as strings ("" = no badge for that
        tier). THIS IS THE ONLY PLACE they live — edit them here and nowhere else.
        This sweep publishes them to the DB key pts-tierroles (below), and the
        earner / bonus / staff commands read them from there (single source of truth,
-       same pattern as $baseDefault → pts-base). Keep the ORDER aligned with the
-       $tiers names/emojis in points.go / points_staff.go. ▼▼ */}}
-{{ $tierRoles := cslice "" "" "" "" "" "" "" "" "" "" }}
+       same pattern as $tierThresholds → pts-thresholds). Keep the ORDER aligned with
+       the $tiers names/emojis in points.go / points_staff.go. ▼▼ */}}
+{{ $tierRoles := cslice "Pollen Puff" "Busy Bee" "Flower Forager" "Bumble Bard" "Honey Helper" "Meadow Muse" "Nectar Novelist" "Hive Hero" "Garden Guardian" "Bee's Knees" }}
 {{/* ▼▼ Members scanned per run, and max role reconciliations per run. Keep the
        scan modest so getMember stays cheap and role writes stay under the API
        cap; the cursor wraps so everyone is reached over successive runs. Lower
@@ -49,13 +52,10 @@
 {{ $changeBudget := 5 }}
 {{/* ─────────────────────────────────────── */}}
 
-{{/* Live tier base = the DB key pts-base (the single knob staff tune with
-     `points tiers base`). SEED IT here if it's missing, so every other command
-     has a value to read. This one dbSet only fires until the key exists. */}}
-{{ $base := $baseDefault }}
-{{ $be := dbGet 0 "pts-base" }}
-{{ if $be }}{{ $base = toInt $be.Value }}{{ else }}{{ dbSet 0 "pts-base" $baseDefault }}{{ end }}
-{{ if lt $base 1 }}{{ $base = 1 }}{{ end }}
+{{/* Publish the tier thresholds so the earner/bonus/staff/slash read them from ONE
+     place. Overwrite every run (pure config, no live-edit command), so an edit to
+     $tierThresholds above propagates on the next sweep. */}}
+{{ dbSet 0 "pts-thresholds" $tierThresholds }}
 
 {{/* Publish the tier role IDs so the earner/bonus/staff read them from ONE place.
      Overwrite every run (they're pure config with no live-edit command, so this
@@ -71,9 +71,10 @@
   {{ if gt $changeBudget 0 }}
     {{ $uid := .UserID }}
     {{ $pts := toInt .Value }}
-    {{/* target tier index for these points: highest N (0-based) with pts ≥ base×N² */}}
+    {{/* target tier index for these points: highest tier (0-based) whose threshold
+         (index i of the ladder) is ≤ pts. Thresholds ascend, so last pass wins. */}}
     {{ $target := -1 }}
-    {{ range $i, $r := $tierRoles }}{{ $n := add $i 1 }}{{ if ge $pts (mult $base (mult $n $n)) }}{{ $target = $i }}{{ end }}{{ end }}
+    {{ range $i, $r := $tierRoles }}{{ if lt $i (len $tierThresholds) }}{{ if ge $pts (toInt (index $tierThresholds $i)) }}{{ $target = $i }}{{ end }}{{ end }}{{ end }}
     {{ $targetRole := "" }}{{ if ge $target 0 }}{{ $targetRole = index $tierRoles $target }}{{ end }}
     {{/* inspect the member's current tier roles (string compare — never `in`,
          which won't match a string against an int64 role id). */}}

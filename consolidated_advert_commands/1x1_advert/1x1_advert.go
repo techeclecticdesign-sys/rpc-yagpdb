@@ -116,12 +116,13 @@
      looser than a "#"-prefix test: leading spaces still render, any whitespace
      may follow the #s, and headings render INSIDE blockquotes ("> # TITLE" —
      an ad evaded the group check that way). Strip one level of quote markup
-     per line (quotes don't nest, and ">>> " doesn't need the space), then
+     per line (quotes don't nest, and ">>> " doesn't need the space), then one
+     "-# " subtext marker (a heading behind it, "-# ## X", still renders), then
      match 1-3 #s + whitespace + text; a bare #/##/### marker counts too —
      Discord renders the NEXT line as its heading text. --- */ -}}
 {{ $hasHeader := false }}
 {{ range (split .Message.Content "\n") }}
-  {{ if reFind "^ *#{1,3}(?:\\s+\\S.*?)?\\s*$" (reReplace "^ *(?:>>>\\s*|>\\s+)" . "") }}{{ $hasHeader = true }}{{ end }}
+  {{ if reFind "^ *#{1,3}(?:\\s+\\S.*?)?\\s*$" (reReplace "^ *-#\\s+" (reReplace "^ *(?:>>>\\s*|>\\s+)" . "") "") }}{{ $hasHeader = true }}{{ end }}
 {{ end }}
 {{ if $hasHeader }}
   {{ $issues = $issues.Append "Headers aren't allowed in the one-on-one advert channels. You're welcome to use regular **bold** instead." }}
@@ -191,19 +192,22 @@
          plain-timestamp entries, then append this post's record. Entries are
          only ever dropped once they age past the window — NO reset on the 4th,
          so the count keeps climbing and every infraction from the 4th on
-         re-applies the ban below. Each record is {t,r,c,m}: unix time, a
-         comma-joined reason (from $tags), and the post's channel/message id for
-         a jump link in /infractions view. */ -}}
+         re-applies the ban below. Each record is {t,r,c,m,p}: unix time, a
+         comma-joined reason (from $tags), the post's channel/message id for a
+         jump link in /infractions view, and the advisory ping id (p) so a grace
+         repost can bump it with no extra DB op. */ -}}
   {{ $cutoff := (add (toInt currentTime.Unix) (mult $infrWindowSecs -1)) }}
   {{ $log := cslice }}
   {{ $legacy := (dbGet .User.ID "infractionDates").Value }}
   {{ if $legacy }}{{ range $legacy }}{{ if ge (toInt .) $cutoff }}{{ $log = $log.Append (sdict "t" (toInt .) "r" "" "c" "" "m" "") }}{{ end }}{{ end }}{{ end }}
+  {{- /* Delete-and-repost within grace: this flagged post replaces the one it
+         superseded. Drop that post's entry (supersede, not double-count) and
+         delete its advisory ping so #rule_infractions shows one, not two. The
+         ping id rides in the entry's "p" field, so the bump adds NO DB op —
+         YAGPDB aborts a command past 10 ops, which would strand the sticky. */ -}}
   {{ $prevLog := (dbGet .User.ID "infractionLog").Value }}
-  {{ if $prevLog }}{{ range $prevLog }}{{ if ge (toInt .t) $cutoff }}{{ $log = $log.Append . }}{{ end }}{{ end }}{{ end }}
-  {{ $log = $log.Append (sdict "t" (toInt currentTime.Unix) "r" (joinStr ", " $tags) "c" (str .Channel.ID) "m" (str .Message.ID)) }}
-  {{ $count := len $log }}
-  {{ dbSet .User.ID "infractionLog" $log }}
-  {{ if $legacy }}{{ dbDel .User.ID "infractionDates" }}{{ end }}
+  {{ if $prevLog }}{{ range $prevLog }}{{ if ge (toInt .t) $cutoff }}{{ if and $inGrace (ne $lastMsgId "") (eq (str .m) $lastMsgId) }}{{ if .p }}{{ deleteMessage $infractionsChannel (toInt .p) 0 }}{{ end }}{{ else }}{{ $log = $log.Append . }}{{ end }}{{ end }}{{ end }}{{ end }}
+  {{ $count := toInt (add (len $log) 1) }}
 
   {{- /* escalation line in the ping */ -}}
   {{ $suffix := "" }}
@@ -213,7 +217,12 @@
     {{ $suffix = printf "\n\n⛔ **This is infraction #%d within six months.** Your advertising privileges have been suspended for 14 days." $count }}
   {{ end }}
 
-  {{ $pingID := sendMessageRetID $infractionsChannel (printf "Hey %s ! A few things to fix in your post in %s:%s\n\nPlease edit your post. Thanks!%s" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID) $body $suffix) }}
+  {{ $pingID := sendMessageRetID $infractionsChannel (printf "Hey %s ! A few things to fix in your post in %s:\n%s\n\nPlease edit your post. Thanks!%s" (printf "<@%d>" .User.ID) (printf "<#%d>" .Channel.ID) $body $suffix) }}
+  {{- /* Append with the ping id in "p", THEN save — one dbSet, no separate key,
+         so the bump above stays free of the 10-op DB budget. */ -}}
+  {{ $log = $log.Append (sdict "t" (toInt currentTime.Unix) "r" (joinStr ", " $tags) "c" (str .Channel.ID) "m" (str .Message.ID) "p" (str $pingID)) }}
+  {{ dbSet .User.ID "infractionLog" $log }}
+  {{ if $legacy }}{{ dbDel .User.ID "infractionDates" }}{{ end }}
 
   {{- /* 4th and every infraction after: (re)apply the 14-day advert ban +
          bot-spam alert. History is NOT wiped, so each further slip re-mutes for

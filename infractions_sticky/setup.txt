@@ -98,12 +98,18 @@ records under the key `infractionLog` (each record holds the time, a
 comma-joined reason, and the offending post's channel/message id for a jump
 link), pruned to the last 6 months on every write. Older installs used a bare
 timestamp list under `infractionDates`; those entries are still read and are
-migrated into `infractionLog` the next time the member infracts. The bot's own
-pings never fire this `.*` trigger, so the advert commands
-count those; THIS branch only counts infractions a human types here by hand
-(matched by the first user @mention in the message). Set the SAME $botSpam,
-$infrWindowSecs, and $advertBanSecs in the three advert commands and reaction
-check so every path counts identically.
+migrated into `infractionLog` the next time the member infracts. YAGPDB's OWN
+advert pings never fire this `.*` trigger (a bot doesn't trigger its own CCs), so
+the advert commands count those via execCC. THIS branch counts:
+  • infractions a human types here by hand (any message with a @mention), and
+  • logger-bot pings that carry the invisible "countable" marker (U+2063) — which
+    the logger-bot adds ONLY to a duplicate-server offense, and only on the first
+    warning. Its dead-link notices deliberately omit the marker, so they ping the
+    channel WITHOUT counting. The gate is `{{ if .Message.Author.Bot }}` +
+    `reFind` \x{2063}` — a bot message with no marker is ignored by the counter.
+In all cases the offender is the first user @mention in the message. Set the SAME
+$botSpam, $infrWindowSecs, and $advertBanSecs in the three advert commands and
+reaction check so every path counts identically.
 
 
 EXPIRY LEDGER (feeds the 180-day channel cleanup)

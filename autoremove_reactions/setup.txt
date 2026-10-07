@@ -1,0 +1,63 @@
+AUTOREMOVE REACTIONS — SETUP
+============================
+
+WHAT THIS DOES
+--------------
+On the advert channels, it deletes any reaction added by someone who is NOT the
+original poster or a staff member, and it protects the staff-only emojis
+(:staffapproved:, :staffpending:, :staffcheck:) from non-staff use — even the
+poster can't add those to their own post.
+
+This is why the quick reaction-floor list and the staff flow can trust that a
+reaction on an advert means something: randoms can't tag other people's ads, and
+only staff can apply the staff emojis.
+
+It is a Reaction-triggered command, so it does NOT count against YAGPDB's cap of
+3 message-triggered commands per post.
+
+
+BEFORE YOU START
+----------------
+1. Turn on Discord Developer Mode:
+   User Settings → Developer → Developer Mode (ON).
+
+2. Know your advert channels — ALL of them: the quick channels, the 1x1 /
+   long-form channels, and the group channels (the same channels your quick,
+   1x1, and group advert commands are restricted to).
+
+
+STEP 1 — CREATE THE COMMAND
+---------------------------
+1. YAGPDB dashboard → Custom Commands → New Command.
+
+2. Trigger type: Reaction
+   Then set it to "Added reactions only" (NOT removed) — this command should run
+   only when a reaction is ADDED.
+
+3. Channel Restrictions: check "Only run in the following channels" and add
+   EVERY advert channel — quick, 1x1, AND group. There is no reason for people
+   to react to anyone else's advert in any of these channels, so restrict it to
+   all of them, not just the quick channels.
+
+4. Open autoremove_reactions.go and copy its contents into the command's code
+   box.
+
+5. Check the two lists at the top match your server:
+     • $staffRoleNames  — the roles allowed to react freely and to use the
+                          staff-only emojis. Matched by NAME with hasRoleName
+                          (case-insensitive), no @. If a staff role is renamed,
+                          update its name here to match.
+     • $staffOnlyEmojis — the emoji NAMES only staff may use (no colons). These
+                          MUST match the emojis the advert commands, reaction
+                          check, and infraction re-check use, or staff flags will
+                          get stripped.
+
+6. Save the command.
+
+
+NOTES
+-----
+• The poster is allowed to react to their own advert (that's how they add the
+  roleplay tags the quick reaction-floor requires) — EXCEPT for the staff-only
+  emojis, which are stripped even from the poster.
+• Bots are ignored, so the bot's own :staffpending: flag is never removed.

@@ -19,7 +19,7 @@
      base) lives in the SEPARATE `points` PREFIX command — see points_staff.go
      and setup.txt.
 
-     DB BUDGET: dbGet(total) + dbRank + dbTopEntries + dbGet(base) = 4
+     DB BUDGET: dbGet(total) + dbRank + dbTopEntries + dbGet(thresholds) = 4
      db_interactions and 2 db_multiple ops (dbRank + dbTopEntries). The free tier
      caps db_multiple at 2/run, so this sits exactly at the ceiling. Do NOT add
      another dbTop/dbBottom/dbRank/dbCount call here or it will error with "too
@@ -30,23 +30,22 @@
 {{- $me := .User.ID -}}
 
 {{/* ── TIER LADDER (config) ── ordered low → high, name + emoji only.
-     Thresholds are COMPUTED, not listed: tier N needs base × N² points, a
-     quadratic "quick early, slower later" RPG curve. The single `base` (points
-     to reach tier 1) is the whole knob — staff set it live with `points tiers
-     base <n>`; it's stored in the DB (key "pts-base") so both files stay in sync.
-     Names/emojis below are placeholders — finalize with arcade/cas.
+     Thresholds are NOT listed here — they're a fixed 10-step ladder that lives in
+     ONE place (points_badge_sweep.go → $tierThresholds), published to the DB key
+     "pts-thresholds" and read below. Names/emojis are placeholders — finalize
+     with arcade/cas.
      ⚠ KEEP THIS $tiers BLOCK IDENTICAL to the one in points_staff.go. */}}
 {{- $tiers := cslice
-    (sdict "name" "Busy Bee"  "emoji" "🐝")
-    (sdict "name" "Hive Hero" "emoji" "🍯")
-    (sdict "name" "Tier 3"    "emoji" "🌸")
-    (sdict "name" "Tier 4"    "emoji" "🌳")
-    (sdict "name" "Tier 5"    "emoji" "✨")
-    (sdict "name" "Tier 6"    "emoji" "🎟️")
-    (sdict "name" "Tier 7"    "emoji" "💎")
-    (sdict "name" "Tier 8"    "emoji" "🏆")
-    (sdict "name" "Tier 9"    "emoji" "🌟")
-    (sdict "name" "Tier 10"   "emoji" "👑") -}}
+    (sdict "name" "Pollen Puff"  "emoji" "🐝")
+    (sdict "name" "Busy Bee" "emoji" "🍯")
+    (sdict "name" "Flower Forager"    "emoji" "🌸")
+    (sdict "name" "Bumble Bard"    "emoji" "🌳")
+    (sdict "name" "Honey Helper"    "emoji" "✨")
+    (sdict "name" "Meadow Muse"    "emoji" "🎟️")
+    (sdict "name" "Nectar Novelist"    "emoji" "💎")
+    (sdict "name" "Hive Hero"    "emoji" "🏆")
+    (sdict "name" "Garden Guardian"    "emoji" "🌟")
+    (sdict "name" "Bee's Knees"   "emoji" "👑") -}}
 {{/* Caller's own lifetime total + leaderboard rank. dbRank is 1-based and returns
      0 when the caller has no entry. The exact key (no _ / % wildcards) makes the
      LIKE pattern an exact match, scoped to this guild. */}}
@@ -54,19 +53,18 @@
 {{- $pts := 0 -}}{{- if $entry -}}{{- $pts = toInt $entry.Value -}}{{- end -}}
 {{- $rank := toInt (dbRank (sdict "pattern" $key) $me $key) -}}
 
-{{/* Tier base — single source of truth is the DB key pts-base, seeded by the
-     interval (points_badge_sweep.go). No local default. 0 = not seeded yet →
-     tiers just don't show until the sweep (or `points tiers base`) sets it. */}}
-{{- $be := dbGet 0 "pts-base" -}}
-{{- $base := 0 -}}{{- if $be -}}{{- $base = toInt $be.Value -}}{{- end -}}
+{{/* Tier ladder — single source of truth is the DB key pts-thresholds, published
+     by the interval (points_badge_sweep.go). No local default. Empty = not seeded
+     yet → tiers just don't show until the sweep publishes them. */}}
+{{- $thEntry := dbGet 0 "pts-thresholds" -}}
+{{- $thresholds := cslice -}}{{- if $thEntry -}}{{- $thresholds = $thEntry.Value -}}{{- end -}}
 
-{{/* Current tier = highest index whose computed threshold (base × N²) ≤ my total.
-     -1 = below tier 1 or base not seeded. Thresholds ascend, so last pass wins. */}}
+{{/* Current tier = highest index whose threshold (ladder entry i) ≤ my total.
+     -1 = below tier 1 or ladder not seeded. Thresholds ascend, so last pass wins. */}}
 {{- $tierIdx := -1 -}}
-{{- if gt $base 0 -}}
+{{- if gt (len $thresholds) 0 -}}
   {{- range $i, $t := $tiers -}}
-    {{- $n := add $i 1 -}}
-    {{- if ge $pts (mult $base (mult $n $n)) -}}{{- $tierIdx = $i -}}{{- end -}}
+    {{- if lt $i (len $thresholds) -}}{{- if ge $pts (toInt (index $thresholds $i)) -}}{{- $tierIdx = $i -}}{{- end -}}{{- end -}}
   {{- end -}}
 {{- end -}}
 

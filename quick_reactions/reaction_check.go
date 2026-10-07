@@ -39,7 +39,7 @@
   "genre_crime" "genre_cyberpunk" "genre_fantasy" "genre_historical" "genre_horror"
   "genre_modern" "genre_postapoc" "genre_sciencefiction" "genre_sliceoflife" "genre_supernatural"
   "speed_rapidfire" "speed_daily" "speed_weekly" "speed_monthly"
-  "original_chars" "canon_chars"
+  "original_chars" "canon_chars" "any_genre"
 }}
 
 {{/* Re-fetch the post so we read its CURRENT reactions. If it was deleted, stop. */}}
@@ -80,7 +80,9 @@
     {{ if and (not $merged) (eq (str .m) $mid) }}
       {{ $merged = true }}
       {{ $rr := .r }}{{ if $rr }}{{ $rr = joinStr "" $rr ", reactions" }}{{ else }}{{ $rr = "reactions" }}{{ end }}
-      {{ $log = $log.Append (sdict "t" .t "r" $rr "c" .c "m" .m) }}
+      {{- /* Preserve the content ping's id (p) through the merge, so a grace
+             repost can still bump that ping — the advert command stores it. */ -}}
+      {{ $log = $log.Append (sdict "t" .t "r" $rr "c" .c "m" .m "p" .p) }}
     {{ else }}
       {{ $log = $log.Append . }}
     {{ end }}

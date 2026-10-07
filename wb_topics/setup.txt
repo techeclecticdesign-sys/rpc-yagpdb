@@ -3,15 +3,16 @@
 ========================================================================
 
 WHAT THIS IS
-  A random-question command for worldbuilding prompts. Same mechanism as the RP
+  A question command for worldbuilding prompts. Same mechanism as the RP
   topic bot in ../rp_topics/ — the questions are stored as ONE database cslice
-  and a tiny command picks one at random — but under its OWN database key
-  ("wbquestions"), so it never mixes with the generic "questions", the RP
-  "rpquestions", or the OC "ocquestions" lists. Any one can be reseeded without
-  touching the others.
+  and a tiny command walks through them top-to-bottom in order (no repeats until
+  the list is exhausted) — but under its OWN database key ("wbquestions"), so it
+  never mixes with the generic "questions", the RP "rpquestions", or the OC
+  "ocquestions" lists. Any one can be reseeded without touching the others.
 
-  Permanent cost: 1 custom command + 1 database entry (owner 0, key
-  "wbquestions"). Seeding reuses a throwaway command slot you delete afterward.
+  Permanent cost: 1 custom command + 2 database entries (owner 0): the list
+  ("wbquestions") and a small walk counter ("wbquestions_idx"). Seeding reuses a
+  throwaway command slot you delete afterward.
 
 ------------------------------------------------------------------------
  FILES
@@ -54,17 +55,29 @@ WHAT THIS IS
  HOW THE PICKER WORKS (wb_asker.txt)
 ------------------------------------------------------------------------
   {{ $q := (dbGet 0 "wbquestions").Value }}
-  {{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No worldbuilding topics loaded yet.{{ end }}
+  {{ $c := toInt (dbIncr 0 "wbquestions_idx" 1) }}
+  {{ $i := toInt (mod (sub $c 1) (len $q)) }}
+  {{ index $q $i }}
 
-  - dbGet 0 "wbquestions"  reads the stored cslice (1 DB call).
-  - randInt (len $q)       returns 0 .. len-1.
-  - index $q N             pulls that question out.
+  - dbGet 0 "wbquestions"          reads the stored cslice (1 DB op).
+  - dbIncr 0 "wbquestions_idx" 1   atomically bumps a persisted counter and
+                                   returns its NEW value (1, 2, 3, ...) — 1 DB op.
+  - sub $c 1                       turns that into a 0-based position for THIS call.
+  - mod ... (len $q)               wraps back to the top after the last question.
+  - toInt ...                      REQUIRED: YAGPDB math returns a float64, and
+                                   `index` refuses a float — this casts it to int.
+  - index $q $i                    pulls that question out.
+
+  Because the counter only moves forward by 1, every question is shown once
+  before any repeats — no more random duplicates. Reseeding resets the counter
+  to 0, so the walk starts again from the top of the list.
 
 ------------------------------------------------------------------------
  EDITING THE LIST LATER
 ------------------------------------------------------------------------
   Easiest: edit wb_seeder.txt (add/remove backtick lines), then re-run the
-  -wbseed command once — it overwrites the key with the new list.
+  -wbseed command once — it overwrites the key with the new list AND resets the
+  walk counter to the top.
 
   To append a few without re-listing everything, make a one-off command:
     {{ $s := (dbGet 0 "wbquestions").Value }}
@@ -72,5 +85,5 @@ WHAT THIS IS
     {{ dbSet 0 "wbquestions" $s }}
     Total now: {{ len $s }}
 
-  To wipe entirely:  {{ dbDel 0 "wbquestions" }}
+  To wipe entirely:  {{ dbDel 0 "wbquestions" }}{{ dbDel 0 "wbquestions_idx" }}
 ========================================================================

@@ -1,0 +1,119 @@
+========================================================================
+ SINNER OR SAINT BOT — /sinnerorsaint  (wouldyourather-style vote poll)
+========================================================================
+
+WHAT THIS IS
+  A wouldyourather-style poll, but with a SINGLE question and two FIXED
+  answers instead of two scenarios. The bot posts one question and adds two
+  vote reactions:
+        😈  (sinner — "yes, guilty as charged")
+        😇  (saint  — "no, perfectly innocent")
+  Members vote by clicking a reaction, exactly like the built-in
+  wouldyourather command.
+
+  The questions are stored and served the SAME way as the RP / OC topic bots
+  (../rp_topics/, ../oc_topics/): the whole list lives in ONE database cslice
+  and a tiny command walks through it top-to-bottom in order (no repeats until
+  the list is exhausted, then it wraps back to the top). It uses its OWN
+  database key ("sinnerorsaintquestions"), so it never mixes with the generic
+  "questions", the RP "rpquestions", the OC "ocquestions", or the
+  worldbuilding "wbquestions" lists. Any one can be reseeded without touching
+  the others.
+
+  Ships stocked with ONE sample question:
+        "Have you ever kept something that wasn't yours?"
+
+  Permanent cost: 1 custom command + 2 database entries (owner 0): the list
+  ("sinnerorsaintquestions") and a small walk counter
+  ("sinnerorsaintquestions_idx"). Seeding reuses a throwaway command slot you
+  delete afterward.
+
+------------------------------------------------------------------------
+ FILES
+------------------------------------------------------------------------
+  sos_seeder.txt ... one-time loader; writes the questions to
+                     "sinnerorsaintquestions". Overwrites (idempotent) — safe
+                     to run more than once. Comes with one sample question.
+  sos_asker.txt .... the permanent /sinnerorsaint poll. Posts the question and
+                     adds the 😈 / 😇 vote reactions.
+
+------------------------------------------------------------------------
+ STEP 1 — SEED THE DATABASE (one time)
+------------------------------------------------------------------------
+  1. Create a new Custom Command.
+       Trigger type: Command
+       Trigger:      -sosseed          (temporary; anything works)
+  2. Paste the contents of sos_seeder.txt as the response. Save.
+  3. Run  -sosseed  in your server. It replies:
+       "Loaded Sinner or Saint questions. Total: 1 (walk reset to the top)".
+  4. DELETE the -sosseed command. The data stays in the database.
+
+  This seeder OVERWRITES rather than appends, so running it twice is harmless —
+  you always end up with exactly this list.
+
+------------------------------------------------------------------------
+ STEP 2 — CREATE THE POLL (permanent)
+------------------------------------------------------------------------
+  Create a new Custom Command and paste sos_asker.txt as the response.
+
+  Pick ONE trigger:
+   * On demand:  Trigger type = Command,  Trigger = sinnerorsaint
+                 -> users type  -sinnerorsaint  to post the next question.
+   * Automatic:  Trigger type = Interval, every N minutes/hours, set the
+                 target channel -> the bot posts one on its own.
+
+  No built-in "sinnerorsaint" exists, so nothing conflicts.
+
+  ⚠ PERMISSION: the bot must have "Add Reactions" in the channel(s) this runs
+  in, or the question will post but the 😈 / 😇 votes won't appear.
+
+  CHANNEL SCOPING: to keep this out of unrelated channels, restrict the
+  command to your chosen channels on its dashboard page (Custom Command ->
+  Restrictions -> whitelist the channels).
+
+------------------------------------------------------------------------
+ HOW THE POLL WORKS (sos_asker.txt)
+------------------------------------------------------------------------
+  {{ $q := (dbGet 0 "sinnerorsaintquestions").Value }}
+  {{ $c := toInt (dbIncr 0 "sinnerorsaintquestions_idx" 1) }}
+  {{ $i := toInt (mod (sub $c 1) (len $q)) }}
+  {{ $question := index $q $i }}
+  {{ $id := sendMessageRetID nil (complexMessage "embed" (cembed ...)) }}
+  {{ addMessageReactions nil $id "😈" "😇" }}
+
+  - dbGet 0 "sinnerorsaintquestions"        reads the stored cslice (1 DB op).
+  - dbIncr 0 "sinnerorsaintquestions_idx" 1 atomically bumps a persisted
+                                   counter and returns its NEW value — 1 DB op.
+  - sub $c 1                       turns that into a 0-based position for THIS call.
+  - mod ... (len $q)               wraps back to the top after the last question.
+  - toInt ...                      REQUIRED: YAGPDB math returns a float64, and
+                                   `index` refuses a float — this casts it to int.
+  - index $q $i                    pulls that question out.
+  - sendMessageRetID nil ...       posts the question as an EMBED (same look as
+                                   the built-in wouldyourather) to the
+                                   current/target channel and returns its ID.
+  - addMessageReactions nil $id .. drops the 😈 / 😇 vote reactions onto it.
+
+  Because the counter only moves forward by 1, every question is shown once
+  before any repeats. Reseeding resets the counter to 0, so the walk starts
+  again from the top of the list.
+
+  DB BUDGET: 2 db_interactions, 0 db_multiple per run — nowhere near the free
+  tier caps.
+
+------------------------------------------------------------------------
+ EDITING THE LIST LATER
+------------------------------------------------------------------------
+  Easiest: edit sos_seeder.txt (add/remove backtick lines — one question per
+  line), then re-run the -sosseed command once — it overwrites the key with the
+  new list AND resets the walk counter to the top.
+
+  To append a few without re-listing everything, make a one-off command:
+    {{ $s := (dbGet 0 "sinnerorsaintquestions").Value }}
+    {{ $s = $s.AppendSlice (cslice `New question one?` `New question two?`) }}
+    {{ dbSet 0 "sinnerorsaintquestions" $s }}
+    Total now: {{ len $s }}
+
+  To wipe entirely:
+    {{ dbDel 0 "sinnerorsaintquestions" }}{{ dbDel 0 "sinnerorsaintquestions_idx" }}
+========================================================================

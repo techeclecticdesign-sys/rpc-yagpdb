@@ -1,0 +1,93 @@
+{{/* Sinner or Saint seeder — run ONCE to load the questions into the
+     "sinnerorsaintquestions" DB entry (owner 0). Like rp_seeder / oc_seeder it
+     OVERWRITES the key in one shot, so it's safe to re-run: it always leaves
+     exactly this list, never duplicates, and resets the walk counter to the top.
+     Ships stocked with a single sample question — add more backtick lines below,
+     one per line, then re-run this command. Delete this command after seeding —
+     the data stays in the DB. */}}
+{{ $slice := cslice
+  `Have you ever kept something that wasn't yours?`
+  `Have you ever pirated a movie, game, or song?`
+  `Have you ever pretended to know who someone was?`
+  `Would you steal $100,000,000 if you knew you'd never be caught?`
+  `Have you ever shared something you swore to keep secret?`
+  `Have you ever blamed someone else for your mistake?`
+  `Have you ever laughed at a friend when something bad happened to them?`
+  `Have you ever cheated on a test or a quiz?`
+  `Have you ever laughed at the worst possible moment?`
+  `Have you ever trolled someone?`
+  `Have you ever stolen something, no matter how small?`
+  `Have you ever forgotten an important birthday?`
+  `Have you ever pretended to know something you didn't?`
+  `Have you ever borrowed something and never returned it?`
+  `Have you ever kept money after receiving too much change?`
+  `Have you ever had a crush on a friend's partner?`
+  `Have you ever faked being asleep to avoid a conversation?`
+  `Have you ever laughed at someone getting embarrassed?`
+  `Have you ever spoiled something for someone on purpose?`
+  `Have you ever thrown away a gift someone gave you?`
+  `Have you ever Googled answers during a closed-book online test?`
+  `Have you ever secretly finished the last slice?`
+  `Have you ever gossiped about someone and then acted like besties 10 minutes later?`
+  `Have you ever secretly hoped someone would fail?`
+  `Have you ever read the last page of a book first?`
+  `Have you ever kept a sweater or hoodie from an ex even after the breakup?`
+  `Have you ever snooped through someone's room?`
+  `Have you ever slept during work or school?`
+  `Have you ever hidden a purchase from someone you live with?`
+  `Have you ever eaten cereal at midnight?`
+  `Have you ever had a fictional crush too embarrassing to admit? `
+  `Have you told a white lie today?`
+  `Have you ever lied about how much something cost?`
+  `Have you ever eaten in a grocery store before paying?`
+  `Have you ever barked, meowed or hissed at an animal?`
+  `Have you ever eavesdropped on a conversation that had nothing to do with you?`
+  `Have you ever intentionally ignored instructions to be petty?`
+  `Have you ever lied about liking someone's cooking?`
+  `Have you ever taken hotel toiletries, towels, or slippers?`
+  `Have you ever pretended to be more drunk than you were?`
+  `Have you ever snooped through someone’s personal belongings? (phone, diary, computer, etc)?
+  `Have you ever broken something and acted like you didn't know what happened?`
+  `Have you ever forgotten an important anniversery?`
+  `Have you ever nodded along to something you completely misheard?`
+  `Have you ever said "we should hang out soon" and meant never?`
+  `Have you ever watched an entire season of a series in one day?`
+  `Have you ever spent hours pretending to work?`
+  `Have you ever peeked at someone's screen on a plane or train?`
+  `Have you ever eaten something you dropped on the floor?`
+  `Have you ever pretended to be fine when you absolutely weren't?`
+  `Have you ever enjoyed saying "I told you so"?`
+  `Have you ever forgotten someone's name immediately after meeting them?`
+  `Have you ever skipped a meeting?`
+  `Have you ever taken the last of something and left the empty box?`
+  `Have you ever put an empty container back instead of throwing it away?`
+  `Have you ever hidden evidence that you were responsible for something you did wrong?`
+  `Have you ever lied to your parents about where you were?`
+  `Have you ever looked through someone's phone without permission?`
+  `Have you ever pretended to be sick to skip school or work?`
+  `Have you ever pretended your phone died or used some other excuse to avoid a friend?`
+  `Have you ever screenshotted a private conversation and sent it to someone else?`
+  `Have you ever deleted a message and hoped nobody saw it first?`
+  `Have you ever pretended not to see someone you knew in public?`
+  `Have you ever taken credit for something you didn't do?`
+  `Have you ever used a gift someone gave you as a gift for someone else?`
+  `Have you ever said "I'm on my way" while still in bed?`
+  `Have you ever pretended to understand a joke you didn’t get?`
+  `Have you ever agreed to plans you had no intention of keeping?`
+  `Have you ever used someones password/account without their permission? (to stream, snoop or etc.)`
+  `Have you ever Googled something during an argument to prove you were right?`
+  `Have you ever pretended to have read a book you only skimmed through at most?`
+  `Have you ever cried to get out of trouble?`
+  `Have you ever lied on a job application?`
+  `Have you ever realized you were wrong during an argument but kept arguing anyway?`
+  `Have you ever eaten food that wasn't yours from a shared fridge without permission?`
+  `Have you ever kept a library book way past its due date instead of renewing?`
+  `Have you ever stalked someone’s social media so far back that you accidentally liked an old post?`
+  `Have you ever left a bad review out of spite?`
+  `Have you ever skipped a line or cut in a queue?`
+  `Have you ever unfollowed someone and hoped they'd notice?`
+  `Have you ever lied about your age?`
+}}
+{{ dbSet 0 "sinnerorsaintquestions" $slice }}
+{{ dbSet 0 "sinnerorsaintquestions_idx" 0 }}
+Loaded Sinner or Saint questions. Total: {{ len $slice }} (walk reset to the top)

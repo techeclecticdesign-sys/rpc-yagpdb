@@ -3,10 +3,17 @@
 
      Trigger type: Command.   Name: infractions
 
-       -infractions view @member       show count + dated list + ban status
+       -infractions view @member       show count + numbered list + ban status
        -infractions @member            alias for view
        -infractions clear @member      wipe history AND lift ban
-       -infractions set @member 4      set the count to 4, applying the ban
+       -infractions drop @member 2     drop a single record by its list index
+                                       (the number shown by `view`). If this
+                                       takes them under 4, any active ban is
+                                       lifted; the ban is never extended.
+       -infractions add @member reason append a hand-written infraction dated
+                                       now with the given reason (the reason may
+                                       be several words). If this reaches 4+, a
+                                       fresh 14-day advert ban is applied.
 
      Restrict this command to staff in the dashboard. See setup.txt.
 
@@ -18,19 +25,28 @@
      into infractionLog the next time the member infracts. Both are pruned only
      by the 6-month window -- nothing is dropped on the 4th infraction. Every
      infraction from the 4th on (re)applies a fresh 14-day advert ban.
+
+     Records are stored oldest-first (each new infraction is appended) and the
+     `view`/`drop` index is 1-based over that same in-window order, so the number
+     you see in `view` is the number you pass to `drop`. `drop` rebuilds the log
+     without that one record (migrating any legacy entries in the process); `add`
+     appends a fresh record dated now with a staff-written reason.
      ===================================================================== */}}
 
-{{- $usage := "Usage: `-infractions view @member`, `-infractions clear @member`, or `-infractions set @member <1-99>`." -}}
+{{- $usage := "Usage: `-infractions view @member`, `-infractions clear @member`, `-infractions drop @member <index>`, or `-infractions add @member <reason>`." -}}
 {{- $action := "view" -}}
 {{- $userArg := "" -}}
-{{- $countArg := "" -}}
+{{- $idxArg := "" -}}
+{{- $reasonArg := "" -}}
 
 {{- if gt (len .CmdArgs) 0 -}}
   {{- $first := lower (index .CmdArgs 0) -}}
-  {{- if in (cslice "view" "clear" "set") $first -}}
+  {{- if in (cslice "view" "clear" "drop" "add") $first -}}
     {{- $action = $first -}}
     {{- if gt (len .CmdArgs) 1 -}}{{- $userArg = index .CmdArgs 1 -}}{{- end -}}
-    {{- if gt (len .CmdArgs) 2 -}}{{- $countArg = index .CmdArgs 2 -}}{{- end -}}
+    {{- if and (eq $first "drop") (gt (len .CmdArgs) 2) -}}{{- $idxArg = index .CmdArgs 2 -}}{{- end -}}
+    {{- /* "add" reason is everything after the user -- the last argument may be several words. */ -}}
+    {{- if and (eq $first "add") (gt (len .CmdArgs) 2) -}}{{- $reasonArg = joinStr " " (slice .CmdArgs 2) -}}{{- end -}}
   {{- else -}}
     {{- $userArg = index .CmdArgs 0 -}}
   {{- end -}}
@@ -63,14 +79,15 @@
 {{- $lines = $lines.Append (printf "They have **%d** advert-infraction(s) in the last 6 months." $count) -}}
 {{- if gt $count 0 -}}
 {{- $lines = $lines.Append "Infractions:" -}}
-{{- range $entries -}}
-{{- $line := printf "- <t:%d:D>" (toInt .t) -}}
-{{- if .r -}}{{- $line = printf "%s - %s" $line .r -}}{{- else -}}{{- $line = printf "%s - reason not recorded" $line -}}{{- end -}}
+{{- range $i, $e := $entries -}}
+{{- $line := printf "%d\\. <t:%d:D>" (toInt (add $i 1)) (toInt $e.t) -}}
+{{- if $e.r -}}{{- $line = printf "%s - %s" $line $e.r -}}{{- else -}}{{- $line = printf "%s - reason not recorded" $line -}}{{- end -}}
 {{- /* Only render the jump link if the post still exists -- a link to a deleted
        message still yanks the viewer over to that channel for nothing. getMessage
        returns nil when the message is gone. Counts against the 100 API-calls/CC
-       budget, but the in-window count is bounded (set caps at 99) so we're safe. */ -}}
-{{- if and .c .m -}}{{- if (getMessage (toInt .c) (toInt .m)) -}}{{- $line = printf "%s ([jump to post](https://discord.com/channels/%s/%s/%s))" $line (str $.Guild.ID) (str .c) (str .m) -}}{{- end -}}{{- end -}}
+       budget, but only real recorded posts carry a channel/message (hand-added
+       records don't), and members are banned at 4, so the count stays small. */ -}}
+{{- if and $e.c $e.m -}}{{- if (getMessage (toInt $e.c) (toInt $e.m)) -}}{{- $line = printf "%s ([jump to post](https://discord.com/channels/%s/%s/%s))" $line (str $.Guild.ID) (str $e.c) (str $e.m) -}}{{- end -}}{{- end -}}
 {{- $lines = $lines.Append $line -}}
 {{- end -}}
 {{- end -}}
@@ -81,22 +98,45 @@
 {{- dbDel $u.ID "infractionDates" -}}
 {{- dbDel $u.ID "advertBan" -}}
 Cleared <@{{ $u.ID }}>'s advert-infraction history - {{ $count }} record(s) removed{{ if $wasBanned }}, and lifted their active advert ban{{ end }}.
-{{- else if eq $action "set" -}}
-{{- $n := 0 -}}{{- if and $countArg (reFind `^\d+$` $countArg) -}}{{- $n = toInt $countArg -}}{{- end -}}
-{{- if or (lt $n 1) (gt $n 99) -}}
-For **set**, provide a count of 1-99. (Use the **clear** action to zero someone out.)
+{{- else if eq $action "drop" -}}
+{{- $idx := 0 -}}{{- if and $idxArg (reFind `^\d+$` $idxArg) -}}{{- $idx = toInt $idxArg -}}{{- end -}}
+{{- if eq $count 0 -}}
+<@{{ $u.ID }}> has no advert-infractions to drop.
+{{- else if or (lt $idx 1) (gt $idx $count) -}}
+For **drop**, provide an index of 1-{{ $count }}. Run `-infractions view @member` to see the numbered list.
 {{- else -}}
-{{- $now := toInt currentTime.Unix -}}{{- $recs := cslice -}}
-{{- range seq 0 $n -}}{{- $recs = $recs.Append (sdict "t" $now "r" "set by staff" "c" "" "m" "") -}}{{- end -}}
+{{- /* Rebuild the log without the 1-based $idx record. $entries is the same
+       in-window, oldest-first list `view` numbers, so the index lines up.
+       Writing $recs migrates any legacy timestamps into infractionLog. */ -}}
+{{- $recs := cslice -}}{{- $removed := sdict "t" 0 "r" "" -}}
+{{- range $i, $e := $entries -}}{{- if eq (toInt (add $i 1)) $idx -}}{{- $removed = $e -}}{{- else -}}{{- $recs = $recs.Append $e -}}{{- end -}}{{- end -}}
 {{- dbSet $u.ID "infractionLog" $recs -}}
 {{- dbDel $u.ID "infractionDates" -}}
-{{- if ge $n 4 -}}
-{{- dbSetExpire $u.ID "advertBan" $now 1209600 -}}{{/* 14-day ban -- keep equal to the advert commands */}}
-Set <@{{ $u.ID }}>'s advert-infraction count to **{{ $n }}** - that's at or over the limit, so they've been advert-banned for 14 days. Their history is kept, so any further infraction re-applies a fresh 14-day ban.
-{{- else -}}
+{{- $newCount := len $recs -}}
 {{- $wasBanned := false -}}{{- if (dbGet $u.ID "advertBan").Value -}}{{- $wasBanned = true -}}{{- end -}}
-{{- dbDel $u.ID "advertBan" -}}
-Set <@{{ $u.ID }}>'s advert-infraction count to **{{ $n }}** (counted from now, expiring in 6 months).{{ if $wasBanned }} That's below the limit, so their active advert ban has been lifted.{{ end }}
+{{- $lifted := false -}}{{- if and $wasBanned (lt $newCount 4) -}}{{- dbDel $u.ID "advertBan" -}}{{- $lifted = true -}}{{- end -}}
+Dropped infraction #{{ $idx }} for <@{{ $u.ID }}> (dated <t:{{ toInt $removed.t }}:D>{{ if $removed.r }} - {{ $removed.r }}{{ end }}). They now have **{{ $newCount }}** advert-infraction(s) in the last 6 months.{{ if $lifted }} That's below the limit, so their active advert ban has been lifted.{{ end }}
+{{- end -}}
+{{- else if eq $action "add" -}}
+{{- if not $reasonArg -}}
+For **add**, provide a reason: `-infractions add @member <reason>`.
+{{- else -}}
+{{- /* Neutralise pings in the free-text reason before it is stored -- a zero-width
+       space after every "@" breaks @everyone/@here and <@id>/<@&role> mentions, so
+       the reason can't ping when it is echoed here or re-shown by `view`. */ -}}
+{{- $reasonArg = reReplace "@" $reasonArg "@​" -}}
+{{- /* Append a hand-written record dated now. Writing $recs also migrates any
+       legacy timestamps into infractionLog, so infractionDates can be dropped. */ -}}
+{{- $now := toInt currentTime.Unix -}}
+{{- $recs := $entries.Append (sdict "t" $now "r" $reasonArg "c" "" "m" "") -}}
+{{- dbSet $u.ID "infractionLog" $recs -}}
+{{- dbDel $u.ID "infractionDates" -}}
+{{- $newCount := len $recs -}}
+{{- if ge $newCount 4 -}}
+{{- dbSetExpire $u.ID "advertBan" $now 1209600 -}}{{/* 14-day ban -- keep equal to the advert commands */}}
+Added an advert-infraction for <@{{ $u.ID }}> - {{ $reasonArg }}. They now have **{{ $newCount }}** in the last 6 months, which is at or over the limit, so they've been advert-banned for 14 days. Any further infraction re-applies a fresh 14-day ban.
+{{- else -}}
+Added an advert-infraction for <@{{ $u.ID }}> - {{ $reasonArg }}. They now have **{{ $newCount }}** in the last 6 months.
 {{- end -}}
 {{- end -}}
 {{- else -}}

@@ -10,8 +10,8 @@
      already at 2 of YAGPDB's 3 message-trigger slots.
 
      Silent: it never posts anything, it just banks points. ~3 DB ops in the
-     common path (cooldown get + incr + cooldown set); +2 more (pts-base +
-     pts-tierroles) only on a scoring post once the tier base is seeded. Well
+     common path (cooldown get + incr + cooldown set); +2 more (pts-thresholds +
+     pts-tierroles) only on a scoring post once the ladder is published. Well
      inside the free-tier cap of 10.
 
      CUMULATIVE, NO RESET: points accumulate forever under one lifetime key
@@ -26,7 +26,7 @@
 {{/* ▼▼ One earn per member per this many seconds (anti-farm — stops someone
        spamming one-word messages for points). ~10s feels almost per-message in
        normal chat while still blocking copy-paste floods. ▼▼ */}}
-{{ $cooldownSecs := 10 }}
+{{ $cooldownSecs := 60 }}
 {{/* ▼▼ A text post must have at least this many characters (after trimming
        whitespace) to count. ▼▼ */}}
 {{ $minChars := 2 }}
@@ -65,22 +65,22 @@
 {{ $newTotal := toInt (dbIncr .User.ID "pts-total" $amt) }}
 {{ dbSetExpire .User.ID "ptsCD" 1 $cooldownSecs }}
 
-{{/* ── Instant tier-up. If this earn crossed a threshold (tier N = base × N²),
-     grant the new badge role now and drop the old one. We know the old + new
-     totals from the math, so no getMember is needed. Base is read from pts-base
-     (single source, seeded by the badge sweep); if it isn't seeded yet ($base 0)
-     we skip and let the sweep handle it. The sweep is also the reconciler for
-     demotions / rebalances / anyone this misses. */}}
-{{ $be := dbGet 0 "pts-base" }}{{ $base := 0 }}{{ if $be }}{{ $base = toInt $be.Value }}{{ end }}
-{{ if gt $base 0 }}
+{{/* ── Instant tier-up. If this earn crossed a threshold (the tier ladder is the
+     DB key pts-thresholds), grant the new badge role now and drop the old one. We
+     know the old + new totals from the math, so no getMember is needed. Thresholds
+     are read from pts-thresholds (single source, published by the badge sweep); if
+     they aren't seeded yet (empty) we skip and let the sweep handle it. The sweep
+     is also the reconciler for demotions / recalibrations / anyone this misses. */}}
+{{ $thEntry := dbGet 0 "pts-thresholds" }}{{ $thresholds := cslice }}{{ if $thEntry }}{{ $thresholds = $thEntry.Value }}{{ end }}
+{{ if gt (len $thresholds) 0 }}
   {{/* tier role IDs from the single source (points_badge_sweep.go → pts-tierroles) */}}
   {{ $trEntry := dbGet 0 "pts-tierroles" }}{{ $tierRoles := cslice }}{{ if $trEntry }}{{ $tierRoles = $trEntry.Value }}{{ end }}
   {{ $oldTotal := sub $newTotal $amt }}
   {{ $oldTier := -1 }}{{ $newTier := -1 }}
   {{ range $i, $r := $tierRoles }}
-    {{ $n := add $i 1 }}{{ $need := mult $base (mult $n $n) }}
+    {{ if lt $i (len $thresholds) }}{{ $need := toInt (index $thresholds $i) }}
     {{ if ge $oldTotal $need }}{{ $oldTier = $i }}{{ end }}
-    {{ if ge $newTotal $need }}{{ $newTier = $i }}{{ end }}
+    {{ if ge $newTotal $need }}{{ $newTier = $i }}{{ end }}{{ end }}
   {{ end }}
   {{ if gt $newTier $oldTier }}
     {{ $nr := index $tierRoles $newTier }}

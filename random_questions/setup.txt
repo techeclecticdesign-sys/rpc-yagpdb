@@ -1,52 +1,61 @@
 ========================================================================
- RANDOM QUESTION BOT — YAGPDB setup
+ RANDOM QUESTION BOT — YAGPDB setup  (the generic /topic command)
 ========================================================================
 
 WHAT THIS DOES
-  Stores all 595 questions as ONE database entry (a cslice under the key
-  "questions"), then a tiny command picks one at random. This sidesteps the
-  10,000-char-per-custom-command limit without touching the free-tier DB
-  count limit.
+  Stores 350 general conversation questions as ONE database entry (a cslice
+  under the key "questions"), then a tiny command walks through them
+  top-to-bottom in order. Storing the list in the DB sidesteps the
+  10,000-char-per-custom-command limit; walking with a persisted counter
+  (instead of picking at random) means no question repeats until the whole
+  list has been shown.
+
+  This is the GENERIC topic list. The RP / OC / worldbuilding bots in
+  ../rp_topics/, ../oc_topics/, ../wb_topics/ use the SAME mechanism under
+  their own keys ("rpquestions", "ocquestions", "wbquestions"), so the lists
+  never mix and any one can be reseeded without touching the others.
 
 WHY THIS APPROACH (free-tier math)
-  - CC code cap ........... 10,000 chars per command  -> we never store the
-                            list inside the picker; it lives in the DB.
-  - DB entry COUNT cap .... 50 x member_count (free)   -> we use exactly 1 key.
-  - DB entry SIZE cap ..... 100 kB per entry           -> our list is ~37 kB.
-  - DB calls per exec ..... 10 (free)                  -> picker uses just 1.
-  Net permanent cost: 1 custom command + 1 database entry.
+  - CC code cap ........... 10,000 chars per command -> the full ~22 kB list
+                            can't fit in one command, so the seeder is split
+                            into 3 chunks (~6.7 / 8.0 / 7.4 kB each).
+  - DB entry COUNT cap .... 50 x member_count (free)  -> we use 2 keys: the
+                            list ("questions") + a tiny walk counter
+                            ("questions_idx").
+  - DB entry SIZE cap ..... 100 kB per entry          -> our list is ~22 kB.
+  - DB calls per exec ..... 10 (free)                 -> picker uses just 2.
+  Net permanent cost: 1 custom command + 2 database entries.
 
 ------------------------------------------------------------------------
  FILES
 ------------------------------------------------------------------------
-  seeder_chunk_1.txt .. 150 questions   (~9 kB each, all under the 10k cap)
-  seeder_chunk_2.txt .. 132 questions
-  seeder_chunk_3.txt .. 134 questions
-  seeder_chunk_4.txt .. 135 questions
-  seeder_chunk_5.txt ..  44 questions
-  asker.txt ........... the permanent random-question command
-                        (595 questions total)
+  seeder_chunk_1.txt .. RESETS "questions", loads questions 1-117, and resets
+                        the walk counter to the top.
+  seeder_chunk_2.txt .. APPENDS questions 118-234.
+  seeder_chunk_3.txt .. APPENDS questions 235-350.
+  asker.txt ........... the permanent picker (350 questions total).
 
 ------------------------------------------------------------------------
  STEP 1 — SEED THE DATABASE (one time)
 ------------------------------------------------------------------------
-  You only need ONE spare command slot for this. Reuse it 5 times:
+  You only need ONE spare command slot. Reuse it 3 times:
 
   1. Create a new Custom Command.
        Trigger type: Command
-       Trigger:      -seed          (anything; it's temporary)
+       Trigger:      -seed          (temporary; anything works)
   2. Paste the contents of seeder_chunk_1.txt as the response. Save.
-  3. Run  -seed  in your server. It replies: "Loaded chunk. Total now: 150".
+  3. Run  -seed  in your server. It replies:
+       "Reset "questions" (walk reset to the top) and loaded chunk 1/3. Total now: 117".
   4. Edit the SAME command: replace the response with seeder_chunk_2.txt.
-     Save, run -seed again -> "Total now: 282".
-  5. Repeat for chunks 3, 4, 5. After chunk 5 it should say:
-       "Loaded chunk. Total now: 595"
+     Save, run -seed again -> "Loaded chunk 2/3. Total now: 234".
+  5. Replace with seeder_chunk_3.txt. Save, run -seed ->
+       "Loaded chunk 3/3. Total now: 350".
   6. DELETE the -seed command. The data stays in the database.
 
-  NOTE: The chunks are additive (they append to whatever is already stored).
-  Run each chunk EXACTLY ONCE. If you lose track, wipe and restart with:
-       {{ dbDel 0 "questions" }}
-  then run chunks 1..5 again in order.
+  RE-RUNNABLE AS A SET: chunk 1 wipes the key before loading, so if you lose
+  track just start over from chunk 1 in order — you always end up with exactly
+  350, never duplicates. (Running a single APPEND chunk twice WILL duplicate,
+  so run each chunk once per pass.)
 
 ------------------------------------------------------------------------
  STEP 2 — CREATE THE ASKER (permanent)
@@ -54,8 +63,8 @@ WHY THIS APPROACH (free-tier math)
   Create a new Custom Command and paste asker.txt as the response.
 
   Pick ONE trigger:
-   * On demand:   Trigger type = Command,  Trigger = question
-                  -> users type  -question  to get a random one.
+   * On demand:   Trigger type = Command,  Trigger = topic
+                  -> users type  -topic  for the next question in the list.
    * Automatic:   Trigger type = Interval,  every N minutes/hours,
                   set the target channel -> bot posts one on its own.
                   (Free tier minimum interval is ~5-10 min.)
@@ -86,21 +95,36 @@ WHY THIS APPROACH (free-tier math)
  HOW THE PICKER WORKS (asker.txt)
 ------------------------------------------------------------------------
   {{ $q := (dbGet 0 "questions").Value }}
-  {{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No questions loaded yet.{{ end }}
+  {{ $c := toInt (dbIncr 0 "questions_idx" 1) }}
+  {{ $i := toInt (mod (sub $c 1) (len $q)) }}
+  {{ index $q $i }}
 
-  - dbGet 0 "questions"  reads the single stored cslice (1 DB call).
-  - randInt (len $q)     returns 0 .. len-1.
-  - index $q N           pulls that question out.
+  - dbGet 0 "questions"          reads the single stored cslice (1 DB op).
+  - dbIncr 0 "questions_idx" 1   atomically bumps a persisted counter and returns
+                                 its NEW value (1, 2, 3, ...) — 1 DB op.
+  - sub $c 1                     turns that into a 0-based position for THIS call.
+  - mod ... (len $q)             wraps back to the top after the last question.
+  - toInt ...                    REQUIRED: YAGPDB math returns a float64, and
+                                 `index` refuses a float — this casts it to int.
+  - index $q $i                  pulls that question out.
+
+  Because the counter only moves forward by 1, every question is shown once
+  before any repeats — no more random duplicates. Chunk 1 of the seeder resets
+  the counter to 0, so a reseed also restarts the walk from the top.
 
 ------------------------------------------------------------------------
  ADDING / EDITING QUESTIONS LATER
 ------------------------------------------------------------------------
-  Easiest: edit yagpdb_topics.txt (one question per line), regenerate the
-  chunks, wipe with  {{ dbDel 0 "questions" }}  and re-run the chunks.
+  Easiest: edit the backtick lines across the chunk files (keeping each chunk
+  under 10,000 chars), then re-run chunks 1 -> 2 -> 3 once in order. Chunk 1
+  resets both the list and the walk counter, so the new list fully replaces the
+  old and starts again from the top.
 
-  To append a few without wiping, make a one-off command:
+  To append a few without re-listing everything, make a one-off command:
     {{ $s := (dbGet 0 "questions").Value }}
     {{ $s = $s.AppendSlice (cslice `New question one?` `New question two?`) }}
     {{ dbSet 0 "questions" $s }}
     Total now: {{ len $s }}
+
+  To wipe entirely:  {{ dbDel 0 "questions" }}{{ dbDel 0 "questions_idx" }}
 ========================================================================

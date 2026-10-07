@@ -1,5 +1,14 @@
-{{/* OC topic picker — the /octopic command. Reads the single DB entry seeded
-     by oc_seeder.txt (key "ocquestions", owner 0) — SEPARATE from the "topic",
-     "rpquestions", and "wbquestions" keys, so the lists never mix. One DB call. */}}
-{{ $q := (dbGet 0 "ocquestions").Value }}
-{{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No OC topics loaded yet.{{ end }}
+{{/* Sequential /octopic picker — walks the "ocquestions" list top-to-bottom via
+     a persisted counter ("ocquestions_idx") instead of random, so nothing
+     repeats until the whole list has been shown, then it wraps back to the top.
+     dbIncr is atomic, so simultaneous uses still advance cleanly. SEPARATE from
+     the "questions", "rpquestions", and "wbquestions" keys, so the lists never
+     mix. 2 DB ops: read the list + bump the counter. */}}
+{{- $q := (dbGet 0 "ocquestions").Value -}}
+{{- if $q -}}
+{{- $c := toInt (dbIncr 0 "ocquestions_idx" 1) -}}
+{{- $i := toInt (mod (sub $c 1) (len $q)) -}}
+{{- index $q $i -}}
+{{- else -}}
+No OC topics loaded yet.
+{{- end -}}

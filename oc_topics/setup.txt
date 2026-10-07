@@ -3,15 +3,17 @@
 ========================================================================
 
 WHAT THIS IS
-  A random-question command for original-character (OC) prompts. Same mechanism
+  A question command for original-character (OC) prompts. Same mechanism
   as the RP topic bot in ../rp_topics/ — the questions are stored as ONE database
-  cslice and a tiny command picks one at random — but under its OWN database key
-  ("ocquestions"), so it never mixes with the generic "questions", the RP
-  "rpquestions", or the worldbuilding "wbquestions" lists. Any one can be
-  reseeded without touching the others.
+  cslice and a tiny command walks through them top-to-bottom in order (no repeats
+  until the list is exhausted) — but under its OWN database key ("ocquestions"),
+  so it never mixes with the generic "questions", the RP "rpquestions", or the
+  worldbuilding "wbquestions" lists. Any one can be reseeded without touching the
+  others.
 
-  Permanent cost: 1 custom command + 1 database entry (owner 0, key
-  "ocquestions"). Seeding reuses a throwaway command slot you delete afterward.
+  Permanent cost: 1 custom command + 2 database entries (owner 0): the list
+  ("ocquestions") and a small walk counter ("ocquestions_idx"). Seeding reuses a
+  throwaway command slot you delete afterward.
 
 ------------------------------------------------------------------------
  FILES
@@ -54,17 +56,29 @@ WHAT THIS IS
  HOW THE PICKER WORKS (oc_asker.txt)
 ------------------------------------------------------------------------
   {{ $q := (dbGet 0 "ocquestions").Value }}
-  {{ if $q }}{{ index $q (randInt (len $q)) }}{{ else }}No OC topics loaded yet.{{ end }}
+  {{ $c := toInt (dbIncr 0 "ocquestions_idx" 1) }}
+  {{ $i := toInt (mod (sub $c 1) (len $q)) }}
+  {{ index $q $i }}
 
-  - dbGet 0 "ocquestions"  reads the stored cslice (1 DB call).
-  - randInt (len $q)       returns 0 .. len-1.
-  - index $q N             pulls that question out.
+  - dbGet 0 "ocquestions"          reads the stored cslice (1 DB op).
+  - dbIncr 0 "ocquestions_idx" 1   atomically bumps a persisted counter and
+                                   returns its NEW value (1, 2, 3, ...) — 1 DB op.
+  - sub $c 1                       turns that into a 0-based position for THIS call.
+  - mod ... (len $q)               wraps back to the top after the last question.
+  - toInt ...                      REQUIRED: YAGPDB math returns a float64, and
+                                   `index` refuses a float — this casts it to int.
+  - index $q $i                    pulls that question out.
+
+  Because the counter only moves forward by 1, every question is shown once
+  before any repeats — no more random duplicates. Reseeding resets the counter
+  to 0, so the walk starts again from the top of the list.
 
 ------------------------------------------------------------------------
  EDITING THE LIST LATER
 ------------------------------------------------------------------------
   Easiest: edit oc_seeder.txt (add/remove backtick lines), then re-run the
-  -ocseed command once — it overwrites the key with the new list.
+  -ocseed command once — it overwrites the key with the new list AND resets the
+  walk counter to the top.
 
   To append a few without re-listing everything, make a one-off command:
     {{ $s := (dbGet 0 "ocquestions").Value }}
@@ -72,5 +86,5 @@ WHAT THIS IS
     {{ dbSet 0 "ocquestions" $s }}
     Total now: {{ len $s }}
 
-  To wipe entirely:  {{ dbDel 0 "ocquestions" }}
+  To wipe entirely:  {{ dbDel 0 "ocquestions" }}{{ dbDel 0 "ocquestions_idx" }}
 ========================================================================

@@ -13,9 +13,10 @@
      (points.go). This is the staff-side management tool.
 
      Points are CUMULATIVE and never reset — one lifetime total per member under
-     the key `pts-total`. Tier thresholds are computed as base × N², where the
-     single `base` lives under the global key `pts-base` and is what staff tune
-     over time (see `tiers` below), not the scores themselves.
+     the key `pts-total`. Tier thresholds are a fixed 10-step ladder that lives in
+     ONE place (points_badge_sweep.go → $tierThresholds), published to the global
+     key `pts-thresholds` and read here. To recalibrate, edit that ladder in the
+     sweep — there is no in-chat base command anymore.
 
      Usage (prefix is your server's, e.g. -):
        points @member                look up a member
@@ -28,32 +29,29 @@
        points balance 10             adjust your own balance by +10 (or -5, etc.)
        points list                   post the public board (top 10)
        points list 24                post the board starting at rank 24
-       points tiers                  show the tier ladder + computed thresholds
-       points tiers base 10          set the tier base (tier N needs base × N²)
-       points tiers reset            revert the base to its default */}}
+       points tiers                  show the tier ladder + thresholds */}}
 
 {{/* ──────────────── CONFIG ──────────────── */}}
 {{- $logChannel := 0 -}}{{/* mod-log / audit channel ID for adjustments + tier edits, or 0 to disable */}}
 {{- $color := 0xF4700F -}}
-{{- $usage := "Usage: `points @member`, `points add|remove|adjust|set @member <n>`, `points balance [n]`, `points list [n]`, or `points tiers [base <n> | reset]`." -}}
+{{- $usage := "Usage: `points @member`, `points add|remove|adjust|set @member <n>`, `points balance [n]`, `points list [n]`, or `points tiers`." -}}
 
 {{/* ── TIER LADDER (config) ── ordered low → high, name + emoji only. Thresholds
-     are COMPUTED: tier N needs base × N² points (quick early, slower later). The
-     single `base` (points to reach tier 1) is stored in the DB (key "pts-base")
-     and set live with `points tiers base <n>`. Names/emojis are placeholders —
-     finalize with arcade/cas.
+     are a fixed 10-step ladder living in ONE place (points_badge_sweep.go →
+     $tierThresholds), published to the DB key "pts-thresholds" and read below.
+     Names/emojis are placeholders — finalize with arcade/cas.
      ⚠ KEEP THIS $tiers BLOCK IDENTICAL to the one in points.go. */}}
 {{- $tiers := cslice
-    (sdict "name" "Busy Bee"  "emoji" "🐝")
-    (sdict "name" "Hive Hero" "emoji" "🍯")
-    (sdict "name" "Tier 3"    "emoji" "🌸")
-    (sdict "name" "Tier 4"    "emoji" "🌳")
-    (sdict "name" "Tier 5"    "emoji" "✨")
-    (sdict "name" "Tier 6"    "emoji" "🎟️")
-    (sdict "name" "Tier 7"    "emoji" "💎")
-    (sdict "name" "Tier 8"    "emoji" "🏆")
-    (sdict "name" "Tier 9"    "emoji" "🌟")
-    (sdict "name" "Tier 10"   "emoji" "👑") -}}
+    (sdict "name" "Pollen Puff"  "emoji" "🐝")
+    (sdict "name" "Busy Bee" "emoji" "🍯")
+    (sdict "name" "Flower Forager"    "emoji" "🌸")
+    (sdict "name" "Bumble Bard"    "emoji" "🌳")
+    (sdict "name" "Honey Helper"    "emoji" "✨")
+    (sdict "name" "Meadow Muse"    "emoji" "🎟️")
+    (sdict "name" "Nectar Novelist"    "emoji" "💎")
+    (sdict "name" "Hive Hero"    "emoji" "🏆")
+    (sdict "name" "Garden Guardian"    "emoji" "🌟")
+    (sdict "name" "Bee's Knees"   "emoji" "👑") -}}
 {{/* ──────────────────────────────────────── */}}
 {{/* Tier BADGE role IDs are NOT configured here — they live once in
      points_badge_sweep.go and are read from the DB key pts-tierroles inside the
@@ -85,10 +83,11 @@
   {{- $sub = "view" -}}{{- $userArg = index $args 0 -}}
 {{- end -}}
 
-{{/* Tier base — single source of truth is the DB key pts-base, seeded by the
-     interval (points_badge_sweep.go). No local default. 0 = not seeded yet. */}}
-{{- $be := dbGet 0 "pts-base" -}}
-{{- $base := 0 -}}{{- if $be -}}{{- $base = toInt $be.Value -}}{{- end -}}
+{{/* Tier ladder — single source of truth is the DB key pts-thresholds, published
+     by the interval (points_badge_sweep.go). No local default. Empty = not seeded
+     yet. */}}
+{{- $thEntry := dbGet 0 "pts-thresholds" -}}
+{{- $thresholds := cslice -}}{{- if $thEntry -}}{{- $thresholds = $thEntry.Value -}}{{- end -}}
 
 {{/* Instant-badge trackers: any point-changing branch below sets these, and the
      reconcile block at the very bottom fixes that member's tier role right away. */}}
@@ -106,9 +105,9 @@ Point to a member: `points @member`.
 {{- else -}}
 {{- $e := dbGet $u.ID $key -}}{{- $pts := 0 -}}{{- if $e -}}{{- $pts = toInt $e.Value -}}{{- end -}}
 {{- $rank := toInt (dbRank (sdict "pattern" $key) $u.ID $key) -}}
-{{/* highest tier whose computed threshold (base × N²) ≤ their total */}}
+{{/* highest tier whose threshold (ladder entry i) ≤ their total */}}
 {{- $tierIdx := -1 -}}
-{{- if gt $base 0 -}}{{- range $i, $t := $tiers -}}{{- $n := add $i 1 -}}{{- if ge $pts (mult $base (mult $n $n)) -}}{{- $tierIdx = $i -}}{{- end -}}{{- end -}}{{- end -}}
+{{- if gt (len $thresholds) 0 -}}{{- range $i, $t := $tiers -}}{{- if lt $i (len $thresholds) -}}{{- if ge $pts (toInt (index $thresholds $i)) -}}{{- $tierIdx = $i -}}{{- end -}}{{- end -}}{{- end -}}{{- end -}}
 {{- $badge := "" -}}{{- if ge $tierIdx 0 -}}{{- $bt := index $tiers $tierIdx -}}{{- $badge = printf " — %s %s" $bt.emoji $bt.name -}}{{- end -}}
 {{- if eq $rank 0 -}}
 <@{{ $u.ID }}> has **0** points.
@@ -167,37 +166,16 @@ Amount must be non-zero.
 {{- sendMessage .Channel.ID (cembed "title" $ttl "description" $out "color" $color) -}}
 
 {{/* ─────────────── TIERS ─────────────── */}}
+{{/* Display-only. The ladder is a fixed 10-step list edited in points_badge_sweep.go
+     ($tierThresholds) — there is no in-chat base/reset command. Show the ladder
+     with its thresholds (staff see the numbers; members never do). */}}
 {{- else if eq $sub "tiers" -}}
-{{- $action := "" -}}{{- if gt (len $args) 1 -}}{{- $action = lower (index $args 1) -}}{{- end -}}
-{{- if eq $action "reset" -}}
-{{/* clear the DB key; the badge sweep re-seeds its $baseDefault on the next run
-     (the default lives ONLY there, so this command doesn't restate a number). */}}
-{{- dbDel 0 "pts-base" -}}
-{{- if $logChannel -}}{{- sendMessage $logChannel (cembed "title" "Tier base reset" "description" (printf "Base cleared — the badge sweep re-seeds the default on its next run — by <@%d>" .User.ID) "color" $color) -}}{{- end -}}
-Tier base cleared. The badge sweep re-seeds the default on its next hourly run — or run `points tiers base <n>` to set it now.
-{{- else if eq $action "base" -}}
-{{- $arg := "" -}}{{- if gt (len $args) 2 -}}{{- $arg = index $args 2 -}}{{- end -}}
-{{- if not (reFind `^\d+$` $arg) -}}
-Give a whole number: `points tiers base 10` (tier N then needs base × N²).
-{{- else if lt (toInt $arg) 1 -}}
-Base must be at least **1**.
-{{- else -}}
-{{- $base = toInt $arg -}}
-{{- dbSet 0 "pts-base" $base -}}
-{{- if $logChannel -}}{{- sendMessage $logChannel (cembed "title" "Tier base updated" "description" (printf "Base set to **%d** — by <@%d>" $base .User.ID) "color" $color) -}}{{- end -}}
-{{- $out := "" -}}
-{{- range $i, $t := $tiers -}}{{- $n := add $i 1 -}}{{- $out = printf "%s\n%s **%s** — %d pts" $out $t.emoji $t.name (mult $base (mult $n $n)) -}}{{- end -}}
-{{- sendMessage .Channel.ID (cembed "title" (printf "Tier thresholds updated — base %d (tier N = base × N²)" $base) "description" $out "color" $color) -}}
-{{- end -}}
-{{- else -}}
-{{/* no action → show the ladder with computed thresholds (staff see the numbers). */}}
-{{- if le $base 0 -}}
-Tier base isn't seeded yet — the badge sweep sets it on its next run, or run `points tiers base <n>` to set it now.
+{{- if le (len $thresholds) 0 -}}
+Tier ladder isn't published yet — the badge sweep publishes it on its next hourly run (or lower the sweep interval to seed it now).
 {{- else -}}
 {{- $out := "" -}}
-{{- range $i, $t := $tiers -}}{{- $n := add $i 1 -}}{{- $out = printf "%s\n%s **%s** — %d pts" $out $t.emoji $t.name (mult $base (mult $n $n)) -}}{{- end -}}
-{{- sendMessage .Channel.ID (cembed "title" (printf "Tier ladder — base %d (tier N = base × N²)" $base) "description" $out "color" $color) -}}
-{{- end -}}
+{{- range $i, $t := $tiers -}}{{- $need := "?" -}}{{- if lt $i (len $thresholds) -}}{{- $need = printf "%d pts" (toInt (index $thresholds $i)) -}}{{- end -}}{{- $out = printf "%s\n%s **%s** — %s" $out $t.emoji $t.name $need -}}{{- end -}}
+{{- sendMessage .Channel.ID (cembed "title" "Tier ladder" "description" $out "color" $color) -}}
 {{- end -}}
 
 {{/* ─────────────── BALANCE (self) ─────────────── */}}
@@ -225,14 +203,14 @@ Your balance is now **{{ $newTotal }}** point(s).
 
 {{/* ── Instant badge reconcile. A point change above set $doReconcile; fix that
      member's tier role NOW (add the tier they're in, drop any other tier role)
-     instead of waiting for the hourly sweep. No-op when the base isn't seeded or
+     instead of waiting for the hourly sweep. No-op when the ladder isn't seeded or
      $tierRoles is all "". Same string-compare reconcile the sweep uses; no delay
      so the badge changes on the spot. */}}
-{{- if and $doReconcile (gt $base 0) -}}
+{{- if and $doReconcile (gt (len $thresholds) 0) -}}
   {{/* tier role IDs from the single source (points_badge_sweep.go → pts-tierroles) */}}
   {{- $trEntry := dbGet 0 "pts-tierroles" -}}{{- $tierRoles := cslice -}}{{- if $trEntry -}}{{- $tierRoles = $trEntry.Value -}}{{- end -}}
   {{- $tt := -1 -}}
-  {{- range $i, $r := $tierRoles -}}{{- $n := add $i 1 -}}{{- if ge $rcTotal (mult $base (mult $n $n)) -}}{{- $tt = $i -}}{{- end -}}{{- end -}}
+  {{- range $i, $r := $tierRoles -}}{{- if lt $i (len $thresholds) -}}{{- if ge $rcTotal (toInt (index $thresholds $i)) -}}{{- $tt = $i -}}{{- end -}}{{- end -}}{{- end -}}
   {{- $trole := "" -}}{{- if ge $tt 0 -}}{{- $trole = index $tierRoles $tt -}}{{- end -}}
   {{- $rm := getMember $rcUser -}}
   {{- if $rm -}}
