@@ -21,8 +21,8 @@ merged advert command  +  sticky   =  2   (under the cap of 3)
 Each advert command becomes one linear flow:
 
 ```
-1. LENGTH check        → over?     DM + delete + stop
-2. COOLDOWN check      → active?   DM + delete + stop
+1. COOLDOWN check      → active?   DM + delete + stop
+2. LENGTH check        → over?     DM + delete + stop
 3. DUP-IN-CHANNEL      → exists?   DM + delete + stop
    ── post is KEPT past here; it provably exists, so pings are race-free ──
 4. write lastMsg_ / lastMsgTime_
@@ -34,6 +34,10 @@ Each advert command becomes one linear flow:
 6. if any advisory hits → ONE combined ping to #rule_infractions
 7. schedule reaction_check  (quick only)
 ```
+
+Cooldown runs before length so a member who posts too soon is told about the
+cooldown — a too-long post they weren't allowed to make yet shouldn't get a
+"shorten it" DM that sends them off to re-post straight into the cooldown.
 
 Because the advisory checks run **only when the post is kept**, the command knows
 the post still exists, so there is no need for the old `alert_sender` delayed

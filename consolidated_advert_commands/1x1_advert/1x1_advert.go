@@ -41,21 +41,9 @@
   {{ end }}
 {{ end }}
 
-{{- /* ===== 1. LENGTH ===== */ -}}
-{{ if gt $argLength $maxLength }}
-  {{ sendDM (cembed
-    "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because it exceeds the 2000 character limit for our long-form ad channels. Here is the message that was not posted: ")
-    "description" .Message.Content
-    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**" "Please adjust your post to be at or under the max length of a non-Nitro post, which is 2,000 characters. Please note all advertisements in our group channels must be kept to one Discord post, but can include a link to a Google Doc with additional information.\n\nIf you want to keep your post in the current channel, please shorten it to 2000 characters or less. Keep in mind a lot of information may be given using the Post a Plot Tags.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. If you have any further questions please feel free to ask on " (printf "<#%d>" $askTheStaff) "." "**") "inline" false))
-    "color" 14905344
-    "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
-    "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
-  ) }}
-  {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
-  {{ return }}
-{{ end }}
-
-{{- /* ===== 2. COOLDOWN ===== */ -}}
+{{- /* ===== 1. COOLDOWN ===== */ -}}
+{{- /* Runs before the length check so a member who reposts too soon is told
+     about the cooldown, not about the length of a post they couldn't make yet. */ -}}
 {{- /* Fetch the recorded ad once: whether it still exists (getMessage) drives
      both the duplicate check below and the delete-and-repost grace window. */ -}}
 {{ $lastMsgId := (dbGet .User.ID $msgKey).Value }}
@@ -87,6 +75,20 @@
     {{ return }}
     {{ end }}
   {{ end }}
+{{ end }}
+
+{{- /* ===== 2. LENGTH ===== */ -}}
+{{ if gt $argLength $maxLength }}
+  {{ sendDM (cembed
+    "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because it exceeds the 2000 character limit for our long-form ad channels. Here is the message that was not posted: ")
+    "description" .Message.Content
+    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**" "Please adjust your post to be at or under the max length of a non-Nitro post, which is 2,000 characters. Please note all advertisements in our group channels must be kept to one Discord post, but can include a link to a Google Doc with additional information.\n\nIf you want to keep your post in the current channel, please shorten it to 2000 characters or less. Keep in mind a lot of information may be given using the Post a Plot Tags.\n\nFor additional information about posting advertisements, please see our " $advert_rule " channel. If you have any further questions please feel free to ask on " (printf "<#%d>" $askTheStaff) "." "**") "inline" false))
+    "color" 14905344
+    "author" (sdict "name" "Roleplay Central Database" "icon_url" "https://i.ibb.co/mt5sNFb/Main.png")
+    "thumbnail" (sdict "url" "https://i.ibb.co/mt5sNFb/Main.png")
+  ) }}
+  {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
+  {{ return }}
 {{ end }}
 
 {{- /* ===== 3. DUPLICATE IN THIS CHANNEL ===== */ -}}
