@@ -232,10 +232,12 @@ The diagram above traces one advert post from the top. In plain terms:
   advert command (slot 1) and the sticky (slot 2).
 - **The sticky** just re-pins the channel's rules reminder to the bottom so it
   never scrolls away. Done.
-- **The advert command checks the hard rules first:** is the post too long, is
-  the author still on cooldown, do they already have an ad in this channel, or
-  are they advert-banned? If **any** hard rule fails, the bot **DMs the author
-  the reason and deletes the post** — end of story.
+- **The advert command checks the hard rules first:** is the author
+  advert-banned, still on cooldown, is the post too long, or do they already
+  have an ad in this channel? If **any** hard rule fails, the bot **DMs the
+  author the reason and deletes the post** — end of story. The checks run in
+  that order and only the first failure is DMed, so someone posting too soon
+  hears about the cooldown, not the length.
 - **If it passes the hard rules, the post stays** and the bot records it. Now it
   looks for **advisory** problems: links, images, headers, banned words, or the
   same ad copy-pasted across channels. If there are **none**, nothing else

@@ -47,28 +47,9 @@
   {{ end }}
 {{ end }}
 
-{{- /* ===== 1. LENGTH (word count) ===== */ -}}
-{{ if ge $argLength $maxLength }}
-  {{ $longFormChannel := "" }}
-  {{ $channelPlural := "this channel" }}
-  {{ if eq .Channel.Name "quick_fandoms" }}
-    {{ $longFormChannel = (joinStr "" "[#fandom_adverts](" "https://discordapp.com/channels/" (.Message.GuildID) "/504322252611780609)") }}
-  {{ else if eq .Channel.Name "quick_originals" }}
-    {{ $longFormChannel = (joinStr "" "[#original_adverts](" "https://discordapp.com/channels/" (.Message.GuildID) "/504322272618610688)") }}
-  {{ end }}
-  {{ sendDM (cembed
-    "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because it exceeds the hundred word limit for the quick search channels. Here is the message that was not posted: ")
-    "description" .Message.Content
-    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**" "If you want to keep the current length of your post please move it to " $longFormChannel ". Please note all advertisements on " $channelPlural " must be kept to one non-Nitro length Discord post, but can include a link to a Google Doc with additional information.\n\nIf you want to keep your post in the current channel, you must shorten it to be at or under 100 words and re-send your ad once it's within that word limit. You can check your eligibility in our 'Can I post' channel. Keep in mind a lot of information may be given using the Quick Reaction Tags.\n\n" $footer "**") "inline" false))
-    "color" 14905344
-    "author" $author
-    "thumbnail" $thumb
-  ) }}
-  {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
-  {{ return }}
-{{ end }}
-
-{{- /* ===== 2. COOLDOWN ===== */ -}}
+{{- /* ===== 1. COOLDOWN ===== */ -}}
+{{- /* Runs before the length check so a member who reposts too soon is told
+     about the cooldown, not about the length of a post they couldn't make yet. */ -}}
 {{- /* Fetch the recorded ad once: whether it still exists (getMessage) drives
      both the duplicate check below and the delete-and-repost grace window. */ -}}
 {{ $lastMsgId := (dbGet .User.ID $msgKey).Value }}
@@ -100,6 +81,27 @@
     {{ return }}
     {{ end }}
   {{ end }}
+{{ end }}
+
+{{- /* ===== 2. LENGTH (word count) ===== */ -}}
+{{ if ge $argLength $maxLength }}
+  {{ $longFormChannel := "" }}
+  {{ $channelPlural := "this channel" }}
+  {{ if eq .Channel.Name "quick_fandoms" }}
+    {{ $longFormChannel = (joinStr "" "[#fandom_adverts](" "https://discordapp.com/channels/" (.Message.GuildID) "/504322252611780609)") }}
+  {{ else if eq .Channel.Name "quick_originals" }}
+    {{ $longFormChannel = (joinStr "" "[#original_adverts](" "https://discordapp.com/channels/" (.Message.GuildID) "/504322272618610688)") }}
+  {{ end }}
+  {{ sendDM (cembed
+    "title" (joinStr "" "Hello " $name "!\n\n" "Your recent post from #" .Channel.Name " was not posted because it exceeds the hundred word limit for the quick search channels. Here is the message that was not posted: ")
+    "description" .Message.Content
+    "fields" (cslice (sdict "name" "**What can you do about this?**" "value" (joinStr "" "**" "If you want to keep the current length of your post please move it to " $longFormChannel ". Please note all advertisements on " $channelPlural " must be kept to one non-Nitro length Discord post, but can include a link to a Google Doc with additional information.\n\nIf you want to keep your post in the current channel, you must shorten it to be at or under 100 words and re-send your ad once it's within that word limit. You can check your eligibility in our 'Can I post' channel. Keep in mind a lot of information may be given using the Quick Reaction Tags.\n\n" $footer "**") "inline" false))
+    "color" 14905344
+    "author" $author
+    "thumbnail" $thumb
+  ) }}
+  {{ deleteMessage .Message.ChannelID .Message.ID 0 }}
+  {{ return }}
 {{ end }}
 
 {{- /* ===== 3. DUPLICATE IN THIS CHANNEL ===== */ -}}
